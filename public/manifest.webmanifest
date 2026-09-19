@@ -1,0 +1,10 @@
+{
+  "name": "SeatBadlo - Swap train seats with co-passengers",
+  "short_name": "SeatBadlo",
+  "description": "Swap your Indian Railways seat or berth with co-passengers on the same train, before you board.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f7fb",
+  "theme_color": "#2a48c2",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

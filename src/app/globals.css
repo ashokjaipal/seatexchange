@@ -1,0 +1,198 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+
+  /* Rail blue */
+  --color-brand-50: #eef3ff;
+  --color-brand-100: #dce5ff;
+  --color-brand-200: #b9cbff;
+  --color-brand-300: #8faaff;
+  --color-brand-400: #5f83f5;
+  --color-brand-500: #3b5fe0;
+  --color-brand-600: #2a48c2;
+  --color-brand-700: #223a9e;
+  --color-brand-800: #1b2e7b;
+  --color-brand-900: #14225a;
+  --color-brand-950: #0c1538;
+
+  /* Saffron accent */
+  --color-saffron-50: #fff5eb;
+  --color-saffron-100: #ffe8d1;
+  --color-saffron-200: #ffd0a3;
+  --color-saffron-300: #ffb26b;
+  --color-saffron-400: #ff9538;
+  --color-saffron-500: #f97316;
+  --color-saffron-600: #e45f0b;
+  --color-saffron-700: #bd4a09;
+
+  --color-ink: #0f172a;
+  --color-muted: #64748b;
+  --color-line: #e6e8ef;
+  --color-canvas: #f6f7fb;
+
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 2px 8px rgb(16 24 40 / 0.06);
+  --shadow-pop: 0 12px 32px -8px rgb(16 24 40 / 0.18), 0 2px 6px rgb(16 24 40 / 0.06);
+  --shadow-glow: 0 8px 24px -6px rgb(42 72 194 / 0.45);
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  ::selection {
+    @apply bg-saffron-200 text-ink;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: 0.6;
+    cursor: pointer;
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+}
+
+@layer components {
+  .container-x {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
+  }
+  .btn,
+  .btn-primary,
+  .btn-accent,
+  .btn-secondary,
+  .btn-ghost,
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-150 select-none
+      disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 active:scale-[0.98];
+  }
+  .btn-primary {
+    @apply bg-brand-600 text-white shadow-glow hover:bg-brand-700;
+  }
+  .btn-accent {
+    @apply bg-saffron-500 text-white hover:bg-saffron-600 shadow-[0_8px_24px_-6px_rgb(249_115_22/0.45)];
+  }
+  .btn-secondary {
+    @apply bg-white text-ink border border-line hover:border-brand-300 hover:bg-brand-50/60 shadow-card;
+  }
+  .btn-ghost {
+    @apply bg-transparent text-brand-700 hover:bg-brand-50;
+  }
+  .btn-danger {
+    @apply bg-red-50 text-red-700 border border-red-200 hover:bg-red-100;
+  }
+  .btn-lg {
+    @apply px-6 py-3.5 text-base rounded-2xl;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs rounded-lg;
+  }
+  .input {
+    @apply w-full rounded-xl border border-line bg-white px-3.5 py-3 text-base text-ink placeholder:text-slate-400 shadow-[inset_0_1px_2px_rgb(16_24_40/0.04)]
+      transition focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-500;
+  }
+  .input-error {
+    @apply border-red-400 focus:border-red-400 focus:ring-red-100;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-semibold text-ink;
+  }
+  .hint {
+    @apply mt-1.5 text-xs text-muted;
+  }
+  .card {
+    @apply rounded-2xl border border-line bg-white shadow-card;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3.5 py-2 text-sm font-medium text-ink transition
+      hover:border-brand-300 hover:bg-brand-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 select-none cursor-pointer;
+  }
+  .chip-on {
+    @apply border-brand-600 bg-brand-600 text-white hover:bg-brand-700 hover:border-brand-700;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide;
+  }
+  .tone-green {
+    @apply bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200;
+  }
+  .tone-amber {
+    @apply bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200;
+  }
+  .tone-blue {
+    @apply bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200;
+  }
+  .tone-teal {
+    @apply bg-teal-50 text-teal-700 ring-1 ring-inset ring-teal-200;
+  }
+  .tone-violet {
+    @apply bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-200;
+  }
+  .tone-sky {
+    @apply bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200;
+  }
+  .tone-slate {
+    @apply bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-200;
+  }
+  .tone-brand {
+    @apply bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200;
+  }
+  .tone-saffron {
+    @apply bg-saffron-50 text-saffron-700 ring-1 ring-inset ring-saffron-200;
+  }
+  .tone-red {
+    @apply bg-red-50 text-red-700 ring-1 ring-inset ring-red-200;
+  }
+  .kbd {
+    @apply rounded border border-line bg-slate-50 px-1.5 py-0.5 font-mono text-[11px] text-slate-600;
+  }
+  .seat-code {
+    @apply font-mono text-[15px] font-bold tracking-tight text-ink;
+  }
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility animate-rise {
+  animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility bg-hero {
+  background:
+    radial-gradient(1200px 500px at 50% -10%, rgb(42 72 194 / 0.1), transparent 60%),
+    radial-gradient(600px 300px at 90% 10%, rgb(249 115 22 / 0.1), transparent 60%),
+    linear-gradient(180deg, #ffffff 0%, #f6f7fb 100%);
+}
+
+@utility bg-grid {
+  background-image:
+    linear-gradient(to right, rgb(15 23 42 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(15 23 42 / 0.045) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
