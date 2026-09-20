@@ -53,7 +53,7 @@ export async function getSessionUser(): Promise<User | null> {
   const store = await cookies();
   const userId = verifySessionToken(store.get(SESSION_COOKIE)?.value);
   if (!userId) return null;
-  return getDb().users.find((u) => u.id === userId) ?? null;
+  return (await getDb()).users.find((u) => u.id === userId) ?? null;
 }
 
 export function publicUser(u: User) {

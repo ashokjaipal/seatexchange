@@ -24,7 +24,7 @@ export const GET = handle(async (req: Request) => {
   const date = str(url.searchParams.get("date"), 10);
   if (!isValidTrainNo(trainNo) || !isValidYmd(date)) return fail("train and date are required.");
   const viewer = await getSessionUser();
-  const db = getDb();
+  const db = await getDb();
   const mine = viewer ? myActiveListingsOnTrain(db, viewer.id, trainNo, date) : [];
   const listings = activeListingsForTrain(db, trainNo, date).map((l) => ({
     ...toPublicListing(l, db, viewer?.id),
@@ -107,7 +107,7 @@ export const POST = handle(async (req: Request) => {
   }
 
   const pnrHash = hashPnr(pnr);
-  const db = getDb();
+  const db = await getDb();
   const dup = db.listings.find(
     (l) =>
       l.status === "active" &&
@@ -151,7 +151,7 @@ export const POST = handle(async (req: Request) => {
     updatedAt: nowIso,
   };
 
-  const matches = mutate((d) => {
+  const matches = await mutate((d) => {
     d.listings.push(listing);
     // Tell co-passengers whose wishes this seat fulfils
     const others = activeListingsForTrain(d, trainNo, journeyDate).filter((l) => l.id !== listing.id);

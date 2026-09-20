@@ -17,7 +17,7 @@ async function sendSms(mobile: string, code: string): Promise<void> {
 
 export async function issueOtp(mobile: string): Promise<{ demoCode?: string }> {
   const code = DEMO_MODE ? "123456" : String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
-  mutate((db) => {
+  await mutate((db) => {
     db.otps = db.otps.filter((o) => o.mobile !== mobile && new Date(o.expiresAt).getTime() > Date.now());
     db.otps.push({ mobile, code, expiresAt: new Date(Date.now() + OTP_TTL_MS).toISOString(), attempts: 0 });
   });
@@ -25,18 +25,18 @@ export async function issueOtp(mobile: string): Promise<{ demoCode?: string }> {
   return DEMO_MODE ? { demoCode: code } : {};
 }
 
-export function verifyOtp(mobile: string, code: string): { ok: true } | { ok: false; error: string } {
-  const entry = getDb().otps.find((o) => o.mobile === mobile);
+export async function verifyOtp(mobile: string, code: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const entry = (await getDb()).otps.find((o) => o.mobile === mobile);
   if (!entry) return { ok: false, error: "Please request a new OTP." };
   if (new Date(entry.expiresAt).getTime() < Date.now()) return { ok: false, error: "OTP expired. Request a new one." };
   if (entry.attempts >= MAX_ATTEMPTS) return { ok: false, error: "Too many attempts. Request a new OTP." };
   if (entry.code !== code.trim()) {
-    mutate(() => {
+    await mutate(() => {
       entry.attempts += 1;
     });
     return { ok: false, error: "Incorrect OTP. Please check and try again." };
   }
-  mutate((db) => {
+  await mutate((db) => {
     db.otps = db.otps.filter((o) => o.mobile !== mobile);
   });
   return { ok: true };

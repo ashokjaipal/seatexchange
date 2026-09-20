@@ -138,6 +138,15 @@ Other scripts: `npm run build`, `npm start`, `npm run typecheck`, `npm run db:re
 
 Copy `.env.example` to `.env` and set `SESSION_SECRET` before deploying.
 
+### Deploying to Vercel
+
+The app deploys to Vercel as is (framework preset: Next.js). Two things to know:
+
+1. **Storage.** Serverless filesystems are read-only and ephemeral, so on Vercel the JSON store falls back to the temp directory: the app works, but listings vanish whenever a new instance starts. For durable data add Redis, no code changes needed:
+   - In the Vercel project go to *Storage → Marketplace → Upstash Redis* (or Vercel KV) and connect it. It injects `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` (or `KV_REST_API_URL` / `KV_REST_API_TOKEN`).
+   - Redeploy. The log line `[store] using redis` confirms it.
+2. **Secrets.** Set `SESSION_SECRET` (any long random string) in *Settings → Environment Variables*. Leave `NEXT_PUBLIC_DEMO_MODE=true` until an SMS provider is wired in.
+
 ---
 
 ## 6. Codebase map
@@ -160,7 +169,7 @@ src/lib/
   trains.ts              Bundled dataset of ~110 popular trains + search
   matching.ts            Scoring and labels
   listings.ts            Public serialisers (never leak PNR hash / full names)
-  db.ts                  JSON-file store with atomic writes and auto-expiry
+  db.ts store.ts         In-memory document + adapters (JSON file locally, Upstash/Vercel KV Redis in prod)
   auth.ts otp.ts pnr.ts  HMAC-signed session cookie, OTP issue/verify, PNR hashing + lookup
   seed.ts                Demo data, dated relative to today
 src/components/          UI (Tailwind, no component library)
@@ -172,7 +181,7 @@ src/components/          UI (Tailwind, no component library)
 
 The MVP was built to be swapped piece by piece without touching the UI:
 
-1. **Datastore.** `src/lib/db.ts` is the only module that touches disk. Replace `getDb()` / `mutate()` with Postgres (Prisma or Drizzle) for multi-instance deploys. The types in `src/lib/types.ts` map 1:1 to tables.
+1. **Datastore.** `src/lib/store.ts` holds the storage adapters (file, Redis) and `src/lib/db.ts` is the only module that uses them. Redis is fine for launch; move to Postgres (Prisma or Drizzle) when you need queries across many trains. The types in `src/lib/types.ts` map 1:1 to tables.
 2. **SMS OTP.** Implement `sendSms()` in `src/lib/otp.ts` with MSG91 / Kaleyra / Twilio and set `NEXT_PUBLIC_DEMO_MODE=false`.
 3. **PNR auto-fill.** `lookupPnr()` in `src/lib/pnr.ts` currently answers only demo PNRs. Wire an official or partner rail API there; the wizard already handles found / not-found, and multi-passenger PNRs.
 4. **Train data.** `src/lib/trains.ts` is a curated sample. Replace with a full schedule feed; the board already works for unknown train numbers.

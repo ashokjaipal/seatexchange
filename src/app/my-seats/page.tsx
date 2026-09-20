@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function MySeatsPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login?next=/my-seats");
-  const db = getDb();
+  const db = await getDb();
   const mine = db.listings.filter((l) => l.userId === user.id).sort((a, b) => a.journeyDate.localeCompare(b.journeyDate) || b.createdAt.localeCompare(a.createdAt));
   const seats: MySeat[] = mine.map((l) => ({
     ...toPublicListing(l, db, user.id),

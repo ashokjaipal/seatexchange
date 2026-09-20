@@ -11,7 +11,7 @@ export const PATCH = handle(async (req: Request, ctx: { params: Promise<{ id: st
   const user = await requireUser();
   const body = await readJson(req);
   const action = str(body.action, 10) as Action;
-  const db = getDb();
+  const db = await getDb();
   const r = db.requests.find((x) => x.id === id);
   if (!r) return fail("Request not found.", 404);
   const isReceiver = r.toUserId === user.id;
@@ -28,7 +28,7 @@ export const PATCH = handle(async (req: Request, ctx: { params: Promise<{ id: st
     case "accept": {
       if (!isReceiver) return fail("Only the person who received the request can accept it.", 403);
       if (r.status !== "pending") return fail("This request is no longer pending.");
-      mutate((d) => {
+      await mutate((d) => {
         r.status = "accepted";
         r.respondedAt = now;
         // Both seats are now spoken for: close other pending requests on them
@@ -48,7 +48,7 @@ export const PATCH = handle(async (req: Request, ctx: { params: Promise<{ id: st
     case "decline": {
       if (!isReceiver) return fail("Only the receiver can decline.", 403);
       if (r.status !== "pending") return fail("This request is no longer pending.");
-      mutate((d) => {
+      await mutate((d) => {
         r.status = "declined";
         r.respondedAt = now;
         pushNotification(d, r.fromUserId, "Request declined", `${me} declined your swap request on ${r.trainNo}. Keep looking, new seats get listed daily.`, `/train/${r.trainNo}?date=${r.journeyDate}`);
@@ -58,7 +58,7 @@ export const PATCH = handle(async (req: Request, ctx: { params: Promise<{ id: st
     case "cancel": {
       if (!isSender) return fail("Only the sender can cancel.", 403);
       if (r.status !== "pending") return fail("This request is no longer pending.");
-      mutate(() => {
+      await mutate(() => {
         r.status = "cancelled";
         r.respondedAt = now;
       });
@@ -66,7 +66,7 @@ export const PATCH = handle(async (req: Request, ctx: { params: Promise<{ id: st
     }
     case "complete": {
       if (r.status !== "accepted") return fail("Only accepted swaps can be marked done.");
-      mutate((d) => {
+      await mutate((d) => {
         r.status = "completed";
         r.respondedAt = now;
         from.status = "swapped";

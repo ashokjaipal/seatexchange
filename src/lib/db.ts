@@ -1,48 +1,62 @@
-import fs from "node:fs";
-import path from "node:path";
 import crypto from "node:crypto";
 import type { Database } from "./types";
 import { seedDatabase } from "./seed";
 import { todayYmd } from "./format";
+import { createStore, type Store } from "./store";
 
 /**
- * A tiny JSON-file datastore. Good enough for a single-server MVP and demos.
- * Swap this module for Postgres/Prisma when going multi-instance: every
- * consumer only uses getDb() / mutate().
+ * Database access. The whole dataset is one JSON document held in memory and
+ * persisted through a Store adapter (file locally, Redis in production).
+ * Every consumer goes through getDb() / mutate(), so swapping in a relational
+ * database later means changing only this module and src/lib/store.ts.
  */
-const FILE = process.env.DATA_FILE || path.join(process.cwd(), "data", "db.json");
-
-type G = typeof globalThis & { __sbDb?: Database; __sbLastExpiry?: string };
+type G = typeof globalThis & {
+  __sbStore?: Store;
+  __sbDb?: Database;
+  __sbLoading?: Promise<Database>;
+  __sbLoadedAt?: number;
+  __sbLastExpiry?: string;
+};
 const g = globalThis as G;
+
+/** How long a remote (Redis) snapshot is trusted before re-reading it */
+const REMOTE_STALE_MS = 3000;
+
+function store(): Store {
+  if (!g.__sbStore) {
+    g.__sbStore = createStore();
+    console.log(`[store] using ${g.__sbStore.name}`);
+  }
+  return g.__sbStore;
+}
 
 function emptyDb(): Database {
   return { users: [], listings: [], requests: [], notifications: [], otps: [] };
 }
 
-function load(): Database {
+async function persist(db: Database) {
   try {
-    if (fs.existsSync(/* turbopackIgnore: true */ FILE)) {
-      const raw = fs.readFileSync(/* turbopackIgnore: true */ FILE, "utf8");
-      const parsed = JSON.parse(raw) as Partial<Database>;
-      return { ...emptyDb(), ...parsed };
-    }
+    await store().save(db);
   } catch (err) {
-    console.error("[db] failed to read data file, starting fresh:", err);
+    // Never take the app down because storage is unavailable: keep serving from memory.
+    console.error("[store] save failed, continuing in memory:", err);
   }
+}
+
+async function load(): Promise<Database> {
+  const s = store();
+  const loaded = await s.load().catch((err) => {
+    console.error("[store] load failed, starting fresh in memory:", err);
+    return null;
+  });
+  if (loaded) return { ...emptyDb(), ...loaded };
   const db = emptyDb();
   seedDatabase(db);
-  persist(db);
+  await persist(db);
   return db;
 }
 
-function persist(db: Database) {
-  fs.mkdirSync(/* turbopackIgnore: true */ path.dirname(FILE), { recursive: true });
-  const tmp = `${FILE}.${process.pid}.tmp`;
-  fs.writeFileSync(/* turbopackIgnore: true */ tmp, JSON.stringify(db, null, 2));
-  fs.renameSync(/* turbopackIgnore: true */ tmp, FILE);
-}
-
-function expireOld(db: Database) {
+async function expireOld(db: Database) {
   const today = todayYmd();
   if (g.__sbLastExpiry === today) return;
   g.__sbLastExpiry = today;
@@ -54,19 +68,37 @@ function expireOld(db: Database) {
       changed = true;
     }
   }
-  if (changed) persist(db);
+  if (changed) await persist(db);
 }
 
-export function getDb(): Database {
-  if (!g.__sbDb) g.__sbDb = load();
-  expireOld(g.__sbDb);
-  return g.__sbDb;
+export async function getDb(): Promise<Database> {
+  const stale = store().remote && g.__sbLoadedAt !== undefined && Date.now() - g.__sbLoadedAt > REMOTE_STALE_MS;
+  if (!g.__sbDb || stale) {
+    if (!g.__sbLoading) {
+      g.__sbLoading = load().then((db) => {
+        g.__sbDb = db;
+        g.__sbLoadedAt = Date.now();
+        g.__sbLoading = undefined;
+        return db;
+      });
+    }
+    await g.__sbLoading;
+  }
+  const db = g.__sbDb!;
+  await expireOld(db);
+  return db;
 }
 
-export function mutate<T>(fn: (db: Database) => T): T {
-  const db = getDb();
+/**
+ * Apply a change to the in-memory document and persist it. The callback
+ * receives the same object graph the caller got from getDb(), so objects
+ * looked up earlier in the request can be mutated directly.
+ */
+export async function mutate<T>(fn: (db: Database) => T): Promise<T> {
+  const db = g.__sbDb ?? (await getDb());
   const result = fn(db);
-  persist(db);
+  g.__sbLoadedAt = Date.now();
+  await persist(db);
   return result;
 }
 

@@ -29,7 +29,7 @@ export default async function TrainPage({ params, searchParams }: Props) {
   const date = sp.date && isValidYmd(sp.date) ? sp.date : todayYmd();
   const train = getTrain(trainNo);
   const viewer = await getSessionUser();
-  const db = getDb();
+  const db = await getDb();
 
   const mine = viewer ? myActiveListingsOnTrain(db, viewer.id, trainNo, date) : [];
   const listings = activeListingsForTrain(db, trainNo, date).map((l) => ({

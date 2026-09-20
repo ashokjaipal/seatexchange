@@ -17,22 +17,22 @@ export const POST = handle(async (req: Request) => {
   if (!isValidMobile(mobile)) return fail("Enter a valid 10-digit mobile number.");
   if (!/^\d{6}$/.test(code)) return fail("Enter the 6-digit OTP.");
 
-  const existing = getDb().users.find((u) => u.mobile === mobile);
+  const existing = (await getDb()).users.find((u) => u.mobile === mobile);
   if (!existing && !name) {
     // OTP is valid only once, so check without consuming it: we simply peek.
-    const peek = getDb().otps.find((o) => o.mobile === mobile);
+    const peek = (await getDb()).otps.find((o) => o.mobile === mobile);
     if (!peek || peek.code !== code) return fail("Incorrect OTP. Please check and try again.");
     return NextResponse.json({ needsProfile: true });
   }
 
-  const v = verifyOtp(mobile, code);
+  const v = await verifyOtp(mobile, code);
   if (!v.ok) return fail(v.error);
 
   let user: User;
   if (existing) {
     user = existing;
   } else {
-    user = mutate((db) => {
+    user = await mutate((db) => {
       const u: User = { id: newId("u_"), mobile, name, gender, createdAt: new Date().toISOString() };
       db.users.push(u);
       return u;

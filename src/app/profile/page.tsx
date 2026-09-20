@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function ProfilePage() {
   const user = await getSessionUser();
   if (!user) redirect("/login?next=/profile");
-  const db = getDb();
+  const db = await getDb();
   const listed = db.listings.filter((l) => l.userId === user.id).length;
   const swaps = db.requests.filter((r) => (r.fromUserId === user.id || r.toUserId === user.id) && (r.status === "accepted" || r.status === "completed")).length;
 

@@ -21,13 +21,13 @@ type Props = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const l = getDb().listings.find((x) => x.id === id);
+  const l = (await getDb()).listings.find((x) => x.id === id);
   return { title: l ? `${l.coach}-${l.seatNo} ${BERTH_INFO[l.berthType].label} on ${l.trainNo}` : "Listing" };
 }
 
 export default async function ListingPage({ params }: Props) {
   const { id } = await params;
-  const db = getDb();
+  const db = await getDb();
   const raw = db.listings.find((x) => x.id === id);
   if (!raw) notFound();
   const viewer = await getSessionUser();

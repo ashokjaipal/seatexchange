@@ -9,7 +9,7 @@ import type { SwapRequest } from "@/lib/types";
 
 export const GET = handle(async () => {
   const user = await requireUser();
-  const db = getDb();
+  const db = await getDb();
   const requests = db.requests
     .filter((r) => r.fromUserId === user.id || r.toUserId === user.id)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -25,7 +25,7 @@ export const POST = handle(async (req: Request) => {
   const fromListingId = str(body.fromListingId, 40);
   const message = str(body.message, 280);
 
-  const db = getDb();
+  const db = await getDb();
   const to = db.listings.find((l) => l.id === toListingId);
   const from = db.listings.find((l) => l.id === fromListingId);
   if (!to || !from) return fail("Listing not found.", 404);
@@ -51,7 +51,7 @@ export const POST = handle(async (req: Request) => {
     status: "pending",
     createdAt: new Date().toISOString(),
   };
-  mutate((d) => {
+  await mutate((d) => {
     d.requests.push(r);
     pushNotification(
       d,

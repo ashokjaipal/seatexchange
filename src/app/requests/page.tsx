@@ -12,7 +12,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
   const user = await getSessionUser();
   if (!user) redirect("/login?next=/requests");
   const { tab } = await searchParams;
-  const db = getDb();
+  const db = await getDb();
   const requests = db.requests
     .filter((r) => r.fromUserId === user.id || r.toUserId === user.id)
     .sort((a, b) => {

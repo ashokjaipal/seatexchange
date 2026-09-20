@@ -7,8 +7,8 @@ import { todayYmd, addDays } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-export default function HomePage() {
-  const db = getDb();
+export default async function HomePage() {
+  const db = await getDb();
   const today = todayYmd();
   const liveSeats = db.listings.filter((l) => l.status === "active").length;
   const swapsAgreed = db.requests.filter((r) => r.status === "accepted" || r.status === "completed").length;

@@ -11,7 +11,7 @@ type Ctx = { params: Promise<{ id: string }> };
 export const GET = handle(async (_req: Request, ctx: Ctx) => {
   const { id } = await ctx.params;
   const viewer = await getSessionUser();
-  const db = getDb();
+  const db = await getDb();
   const l = db.listings.find((x) => x.id === id);
   if (!l) return fail("Listing not found.", 404);
   const mine = viewer ? myActiveListingsOnTrain(db, viewer.id, l.trainNo, l.journeyDate) : [];
@@ -34,7 +34,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   const { id } = await ctx.params;
   const user = await requireUser();
   const body = await readJson(req);
-  const db = getDb();
+  const db = await getDb();
   const l = db.listings.find((x) => x.id === id);
   if (!l) return fail("Listing not found.", 404);
   if (l.userId !== user.id) return fail("You can only edit your own listing.", 403);
@@ -42,7 +42,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
 
   const wants = body.wants as Record<string, unknown> | undefined;
   const allowed = berthOptionsFor(l.travelClass);
-  mutate(() => {
+  await mutate(() => {
     if (wants) {
       if (Array.isArray(wants.berthTypes)) {
         l.wants.berthTypes = [
@@ -66,11 +66,11 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
 export const DELETE = handle(async (_req: Request, ctx: Ctx) => {
   const { id } = await ctx.params;
   const user = await requireUser();
-  const db = getDb();
+  const db = await getDb();
   const l = db.listings.find((x) => x.id === id);
   if (!l) return fail("Listing not found.", 404);
   if (l.userId !== user.id) return fail("You can only remove your own listing.", 403);
-  mutate((d) => {
+  await mutate((d) => {
     l.status = "withdrawn";
     l.updatedAt = new Date().toISOString();
     for (const r of d.requests) {

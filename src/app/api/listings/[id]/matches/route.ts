@@ -6,7 +6,7 @@ import { scoreMatch } from "@/lib/matching";
 export const GET = handle(async (_req: Request, ctx: { params: Promise<{ id: string }> }) => {
   const { id } = await ctx.params;
   const user = await requireUser();
-  const db = getDb();
+  const db = await getDb();
   const mine = db.listings.find((x) => x.id === id);
   if (!mine) return fail("Listing not found.", 404);
   if (mine.userId !== user.id) return fail("Not your listing.", 403);

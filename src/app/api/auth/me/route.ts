@@ -15,7 +15,7 @@ export const PATCH = handle(async (req: Request) => {
   const genderRaw = str(body.gender, 1);
   if (name.length < 2) return fail("Name must be at least 2 characters.");
   const gender = (["M", "F", "O"].includes(genderRaw) ? genderRaw : undefined) as Gender | undefined;
-  const updated = mutate((db) => {
+  const updated = await mutate((db) => {
     const u = db.users.find((x) => x.id === user.id)!;
     u.name = name;
     u.gender = gender;
