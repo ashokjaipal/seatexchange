@@ -15,8 +15,8 @@
  */
 import { GoogleAuth } from "google-auth-library";
 
-const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "seatexchange1207";
-const DOMAINS = (process.env.AUTHORIZED_DOMAINS || "localhost,seatexchange1207.firebaseapp.com,seatexchange1207.web.app,seatexchange.vercel.app").split(",").map((d) => d.trim()).filter(Boolean);
+const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "seatexchange-94e8b";
+const DOMAINS = (process.env.AUTHORIZED_DOMAINS || "localhost,seatexchange-94e8b.firebaseapp.com,seatexchange-94e8b.web.app,seatexchange.vercel.app").split(",").map((d) => d.trim()).filter(Boolean);
 const TEST_NUMBERS = { "+919000000001": "123456", "+919000000002": "123456", "+919000000009": "123456" };
 const ALLOWED_REGIONS = (process.env.SMS_ALLOWED_REGIONS || "IN").split(",").map((r) => r.trim()).filter(Boolean);
 

@@ -159,7 +159,7 @@ Three ways to deliver the login OTP, chosen automatically in this order:
 
    It enables Phone sign-in, adds the authorized domains (`localhost`, `seatexchange.vercel.app`, the Firebase Hosting domains), restricts SMS to India (`+91`) to stop SMS abuse from abroad, and registers fictional test numbers `+91 9000000001 / 02 / 09` with code `123456` so the demo accounts work in production without sending SMS. The same settings can be made by hand under *Authentication → Sign-in method → Phone* and *Authentication → Settings*.
 
-   **Local testing without SMS.** `npm run firebase:emulators` starts the Auth + Firestore emulators. Run the app with `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIRESTORE_EMULATOR_HOST=localhost:8080 npm run dev`; verification codes appear in the emulator log and at `http://localhost:9099/emulator/v1/projects/seatexchange1207/verificationCodes`.
+   **Local testing without SMS.** `npm run firebase:emulators` starts the Auth + Firestore emulators. Run the app with `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIRESTORE_EMULATOR_HOST=localhost:8080 npm run dev`; verification codes appear in the emulator log and at `http://localhost:9099/emulator/v1/projects/seatexchange-94e8b/verificationCodes`.
 
    Free tier covers 10k verifications a month.
 
@@ -196,14 +196,14 @@ Cards and listing pages show only the coach and berth type (for example "Lower b
 
 The app deploys to Vercel as is (framework preset: Next.js). Two things to know:
 
-1. **Storage: Cloud Firestore.** Set `FIREBASE_SERVICE_ACCOUNT` to the service account JSON of project `seatexchange1207` (Firebase console → Project settings → Service accounts → Generate new private key; paste the JSON, or base64 of it). Redeploy; the log line `[store] using firestore:cloud` confirms it. Without it the app falls back to Redis (if configured) or the temp directory, where data does not persist.
+1. **Storage: Cloud Firestore.** Set `FIREBASE_SERVICE_ACCOUNT` to the service account JSON of project `seatexchange-94e8b` (Firebase console → Project settings → Service accounts → Generate new private key; paste the JSON, or base64 of it). Redeploy; the log line `[store] using firestore:cloud` confirms it. Without it the app falls back to Redis (if configured) or the temp directory, where data does not persist.
 2. **Secrets.** Set `SESSION_SECRET` (any long random string) in *Settings → Environment Variables*. Leave `NEXT_PUBLIC_DEMO_MODE=true` until an SMS provider is wired in.
 
 ---
 
 ## 5b. Firebase backend
 
-The backend is Firebase: **Authentication (Phone)** for login and **Cloud Firestore** for data, in project `seatexchange1207` (web app `1:811799655751:web:0789154c5d86533538c862`).
+The backend is Firebase: **Authentication (Phone)** for login and **Cloud Firestore** for data, in project `seatexchange-94e8b` (web app `1:478450622890:web:9973655a01cde977efcbd3`).
 
 **How the pieces fit**
 
@@ -216,7 +216,7 @@ The backend is Firebase: **Authentication (Phone)** for login and **Cloud Firest
 
 ```bash
 npx -y firebase-tools@latest login              # or: login --no-localhost
-npx -y firebase-tools@latest use seatexchange1207
+npx -y firebase-tools@latest use seatexchange-94e8b
 npx -y firebase-tools@latest deploy --only firestore   # creates the default database if needed, deploys rules + indexes
 npx -y firebase-tools@latest deploy --only auth        # pushes the authorized domains from firebase.json
 ```
@@ -232,7 +232,7 @@ Then in the Firebase console:
 **Local development against the emulator**
 
 ```bash
-npx -y firebase-tools@latest emulators:start --only firestore --project seatexchange1207
+npx -y firebase-tools@latest emulators:start --only firestore --project seatexchange-94e8b
 FIRESTORE_EMULATOR_HOST=localhost:8080 npm run dev
 ```
 

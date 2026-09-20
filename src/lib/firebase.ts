@@ -4,13 +4,13 @@
  * with NEXT_PUBLIC_FIREBASE_* variables.
  */
 export const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyAtnmNGBrKwCEL4hvTsaNpl_Zy-bOZhpPY",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "seatexchange1207.firebaseapp.com",
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "seatexchange1207",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "seatexchange1207.firebasestorage.app",
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "811799655751",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:811799655751:web:0789154c5d86533538c862",
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-KWLFP51MTJ",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyACTmvzClYcXg4puSLqel3RKS8VQIgEMQQ",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "seatexchange-94e8b.firebaseapp.com",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "seatexchange-94e8b",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "seatexchange-94e8b.firebasestorage.app",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "478450622890",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:478450622890:web:9973655a01cde977efcbd3",
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-TB8N1TXC92",
 };
 
 export const hasFirebaseConfig = !!(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId);

@@ -9,7 +9,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "firebase:setup": "node scripts/firebase-setup.mjs",
-    "firebase:emulators": "npx -y firebase-tools@latest emulators:start --only auth,firestore --project seatexchange1207",
+    "firebase:emulators": "npx -y firebase-tools@latest emulators:start --only auth,firestore --project seatexchange-94e8b",
     "db:reset": "node -e \"require('fs').rmSync('data/db.json',{force:true}); console.log('data/db.json removed - it will be re-seeded on next start')\""
   },
   "dependencies": {

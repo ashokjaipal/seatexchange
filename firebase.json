@@ -4,7 +4,7 @@
     "indexes": "firestore.indexes.json"
   },
   "auth": {
-    "authorizedDomains": ["localhost", "seatexchange1207.firebaseapp.com", "seatexchange1207.web.app", "seatexchange.vercel.app"]
+    "authorizedDomains": ["localhost", "seatexchange-94e8b.firebaseapp.com", "seatexchange-94e8b.web.app", "seatexchange.vercel.app"]
   },
   "emulators": {
     "auth": { "port": 9099 },
