@@ -161,7 +161,7 @@ Three ways to deliver the login OTP, chosen automatically in this order:
 
    **Local testing without SMS.** `npm run firebase:emulators` starts the Auth + Firestore emulators. Run the app with `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIRESTORE_EMULATOR_HOST=localhost:8080 npm run dev`; verification codes appear in the emulator log and at `http://localhost:9099/emulator/v1/projects/seatexchange-94e8b/verificationCodes`.
 
-   Free tier covers 10k verifications a month.
+   **Billing.** Firebase only sends phone-auth SMS on projects with billing enabled (Blaze, pay as you go). On the Spark plan the SDK returns `auth/billing-not-enabled`. Upgrade in the Firebase console (*Project settings → Usage and billing → Modify plan*). SMS is charged per message at Google's rate for India after any free allowance; a normal login costs one SMS. Fictional test numbers never send SMS and work on any plan. If SMS cost becomes significant, switch to MSG91 through `SMS_PROVIDER=msg91` (DLT-registered Indian sender, much cheaper per SMS) without touching the UI.
 
 SMS providers:
 

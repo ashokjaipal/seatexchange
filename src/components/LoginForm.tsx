@@ -22,6 +22,8 @@ const FIREBASE_ERRORS: Record<string, string> = {
   "auth/operation-not-allowed": "Phone sign-in is not enabled for this project yet.",
   "auth/unauthorized-domain": "This domain is not authorised for sign-in yet.",
   "auth/internal-error": "Couldn't reach the sign-in service. Check your connection and try again.",
+  "auth/billing-not-enabled": "SMS sign-in is temporarily unavailable. Please try again a little later.",
+  "auth/invalid-app-credential": "Verification failed. Please refresh the page and try again.",
   "auth/web-storage-unsupported": "Please enable cookies / site data for this site and try again.",
 };
 
