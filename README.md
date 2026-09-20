@@ -144,7 +144,24 @@ Three ways to deliver the login OTP, chosen automatically in this order:
 
 1. **Demo mode**: `NEXT_PUBLIC_DEMO_MODE=true`, or nothing else configured. Fixed OTP `123456`, shown on screen.
 2. **Your own SMS provider**: set `SMS_PROVIDER` (table below). The server generates and checks the code.
-3. **Firebase Phone Authentication** (default when the Firebase web config is present, which it is). The browser asks Firebase to send the SMS (invisible reCAPTCHA), the user enters the code, and the resulting ID token is verified on our server against Google's public certificates before a session is created. Free tier covers 10k verifications a month. Setup in the Firebase console: *Authentication → Sign-in method → Phone → Enable*, and add `seatexchange.vercel.app` (and any custom domain) under *Authentication → Settings → Authorized domains*. To keep the demo accounts usable, add `+91 9000000001` etc. with code `123456` under *Phone numbers for testing*.
+3. **Firebase Phone Authentication** (default when the Firebase web config is present, which it is). Implemented exactly as the Firebase "Authenticate with Firebase on the web using a phone number" guide:
+   - `RecaptchaVerifier` (invisible) mounted on `#recaptcha-container` in the login form, reset after a failed send since reCAPTCHA tokens are single-use
+   - `signInWithPhoneNumber(auth, "+91" + mobile, verifier)` → `confirmationResult.confirm(code)`
+   - `auth.useDeviceLanguage()` so reCAPTCHA and the SMS text follow the phone's language
+   - the ID token is verified server-side with the Admin SDK before a SeatBadlo session is created; the phone number is taken from the token, never from the form
+   - errors from the SDK (`auth/invalid-verification-code`, `auth/code-expired`, `auth/too-many-requests`, `auth/unauthorized-domain`, ...) are mapped to plain-language messages
+
+   **Project configuration (one-time).** Everything the guide asks you to click in the console is scripted:
+
+   ```bash
+   FIREBASE_SERVICE_ACCOUNT='<service account JSON>' npm run firebase:setup
+   ```
+
+   It enables Phone sign-in, adds the authorized domains (`localhost`, `seatexchange.vercel.app`, the Firebase Hosting domains), restricts SMS to India (`+91`) to stop SMS abuse from abroad, and registers fictional test numbers `+91 9000000001 / 02 / 09` with code `123456` so the demo accounts work in production without sending SMS. The same settings can be made by hand under *Authentication → Sign-in method → Phone* and *Authentication → Settings*.
+
+   **Local testing without SMS.** `npm run firebase:emulators` starts the Auth + Firestore emulators. Run the app with `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIRESTORE_EMULATOR_HOST=localhost:8080 npm run dev`; verification codes appear in the emulator log and at `http://localhost:9099/emulator/v1/projects/seatexchange1207/verificationCodes`.
+
+   Free tier covers 10k verifications a month.
 
 SMS providers:
 

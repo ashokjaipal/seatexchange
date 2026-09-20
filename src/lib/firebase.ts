@@ -44,11 +44,16 @@ export async function getFirebaseAnalytics(): Promise<Analytics | null> {
   return analytics;
 }
 
+/** Set NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 to sign in against the local Auth emulator. */
+const AUTH_EMULATOR = process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST;
+
 export async function getFirebaseAuth(): Promise<Auth> {
   if (!auth) {
-    const { getAuth } = await import("firebase/auth");
+    const { getAuth, connectAuthEmulator } = await import("firebase/auth");
     auth = getAuth(await getFirebaseApp());
-    auth.languageCode = "en";
+    // Localise reCAPTCHA and the SMS text to the device language (Hindi, Tamil, ... where Firebase supports it)
+    auth.useDeviceLanguage();
+    if (AUTH_EMULATOR) connectAuthEmulator(auth, `http://${AUTH_EMULATOR}`, { disableWarnings: true });
   }
   return auth;
 }

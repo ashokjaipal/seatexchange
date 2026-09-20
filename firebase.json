@@ -7,6 +7,7 @@
     "authorizedDomains": ["localhost", "seatexchange1207.firebaseapp.com", "seatexchange1207.web.app", "seatexchange.vercel.app"]
   },
   "emulators": {
+    "auth": { "port": 9099 },
     "firestore": { "port": 8080 },
     "ui": { "enabled": false }
   }
