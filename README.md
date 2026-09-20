@@ -236,6 +236,8 @@ npx -y firebase-tools@latest emulators:start --only firestore --project seatexch
 FIRESTORE_EMULATOR_HOST=localhost:8080 npm run dev
 ```
 
+**Indexes.** `firestore.indexes.json` declares the composite indexes for future targeted queries. The Admin SDK service account cannot create indexes, so deploy them once with an account that owns the project (`npx -y firebase-tools@latest login` then `deploy --only firestore:indexes`), or create them from the link Firestore prints the first time such a query runs. Nothing in the current code needs them.
+
 **Scaling note.** The server keeps the working set in memory and re-reads Firestore every few seconds per instance, writing only changed documents in batches. That is simple and cheap at launch scale (thousands of listings). When a train board needs to scale beyond that, switch `activeListingsForTrain()` and friends to targeted queries; the composite indexes for those queries are already declared in `firestore.indexes.json`.
 
 ## 6. Codebase map
