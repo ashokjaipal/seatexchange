@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { handle, fail, readJson, str } from "@/lib/api";
 import { isValidMobile } from "@/lib/rail";
-import { peekOtp, verifyOtp } from "@/lib/otp";
+import { authMode, peekOtp, verifyOtp } from "@/lib/otp";
 import { getDb, mutate, newId } from "@/lib/db";
 import { SESSION_COOKIE, createSessionToken, publicUser, sessionCookieOptions } from "@/lib/auth";
 import type { Gender, User } from "@/lib/types";
 
 export const POST = handle(async (req: Request) => {
+  if (authMode() === "firebase") return fail("Login is handled by Firebase Phone Authentication on this deployment.", 400);
   const body = await readJson(req);
   const mobile = str(body.mobile, 10).replace(/\D/g, "");
   const code = str(body.code, 6);

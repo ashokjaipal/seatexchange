@@ -1,8 +1,9 @@
 import { handle, fail, json, readJson, str } from "@/lib/api";
 import { isValidMobile } from "@/lib/rail";
-import { issueOtp } from "@/lib/otp";
+import { authMode, issueOtp } from "@/lib/otp";
 
 export const POST = handle(async (req: Request) => {
+  if (authMode() === "firebase") return fail("Login is handled by Firebase Phone Authentication on this deployment.", 400);
   const body = await readJson(req);
   const mobile = str(body.mobile, 10).replace(/\D/g, "");
   if (!isValidMobile(mobile)) return fail("Enter a valid 10-digit Indian mobile number.");

@@ -51,7 +51,8 @@ async function load(): Promise<Database> {
   });
   if (loaded) return { ...emptyDb(), ...loaded };
   const db = emptyDb();
-  seedDatabase(db);
+  if (process.env.SEED_DEMO_DATA !== "false") seedDatabase(db);
+  else db.seededAt = new Date().toISOString();
   await persist(db);
   return db;
 }

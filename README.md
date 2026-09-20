@@ -179,12 +179,47 @@ Cards and listing pages show only the coach and berth type (for example "Lower b
 
 The app deploys to Vercel as is (framework preset: Next.js). Two things to know:
 
-1. **Storage.** Serverless filesystems are read-only and ephemeral, so on Vercel the JSON store falls back to the temp directory: the app works, but listings vanish whenever a new instance starts. For durable data add Redis, no code changes needed:
-   - In the Vercel project go to *Storage → Marketplace → Upstash Redis* (or Vercel KV) and connect it. It injects `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` (or `KV_REST_API_URL` / `KV_REST_API_TOKEN`).
-   - Redeploy. The log line `[store] using redis` confirms it.
+1. **Storage: Cloud Firestore.** Set `FIREBASE_SERVICE_ACCOUNT` to the service account JSON of project `seatexchange1207` (Firebase console → Project settings → Service accounts → Generate new private key; paste the JSON, or base64 of it). Redeploy; the log line `[store] using firestore:cloud` confirms it. Without it the app falls back to Redis (if configured) or the temp directory, where data does not persist.
 2. **Secrets.** Set `SESSION_SECRET` (any long random string) in *Settings → Environment Variables*. Leave `NEXT_PUBLIC_DEMO_MODE=true` until an SMS provider is wired in.
 
 ---
+
+## 5b. Firebase backend
+
+The backend is Firebase: **Authentication (Phone)** for login and **Cloud Firestore** for data, in project `seatexchange1207` (web app `1:811799655751:web:0789154c5d86533538c862`).
+
+**How the pieces fit**
+
+- Browsers use the Firebase web SDK only for Phone Authentication and Analytics. They never read or write Firestore directly.
+- The Next.js server uses the Firebase Admin SDK: it verifies Phone Auth ID tokens, then reads and writes Firestore on the user's behalf. This is what lets us hide berth numbers and phone numbers until a swap is accepted, run the request state machine, and verify PNRs server-side.
+- Firestore collections (one document each): `users`, `listings`, `requests`, `notifications`, `otps`, plus `meta/db`. See the data model comment at the top of `firestore.rules`.
+- `firestore.rules` is therefore **default deny** for clients. Verified on the emulator: unauthenticated reads return `PERMISSION_DENIED`, Admin SDK access works.
+
+**One-time setup (needs your Firebase login, run from the repo root)**
+
+```bash
+npx -y firebase-tools@latest login              # or: login --no-localhost
+npx -y firebase-tools@latest use seatexchange1207
+npx -y firebase-tools@latest deploy --only firestore   # creates the default database if needed, deploys rules + indexes
+npx -y firebase-tools@latest deploy --only auth        # pushes the authorized domains from firebase.json
+```
+
+Then in the Firebase console:
+
+1. *Authentication → Sign-in method → Phone → Enable* (phone sign-in cannot be enabled from the CLI).
+2. Optional: *Phone numbers for testing* → add `+91 9000000001` / `+91 9000000002` with code `123456` so the demo accounts work on the live site.
+3. *Project settings → Service accounts → Generate new private key* → paste the JSON into Vercel as `FIREBASE_SERVICE_ACCOUNT`.
+
+`SEED_DEMO_DATA=false` starts an empty database with no demo users or listings.
+
+**Local development against the emulator**
+
+```bash
+npx -y firebase-tools@latest emulators:start --only firestore --project seatexchange1207
+FIRESTORE_EMULATOR_HOST=localhost:8080 npm run dev
+```
+
+**Scaling note.** The server keeps the working set in memory and re-reads Firestore every few seconds per instance, writing only changed documents in batches. That is simple and cheap at launch scale (thousands of listings). When a train board needs to scale beyond that, switch `activeListingsForTrain()` and friends to targeted queries; the composite indexes for those queries are already declared in `firestore.indexes.json`.
 
 ## 6. Codebase map
 
@@ -206,10 +241,11 @@ src/lib/
   trains.ts              Bundled dataset of ~110 popular trains + search
   matching.ts            Scoring and labels
   listings.ts            Public serialisers (never leak PNR hash / full names)
-  db.ts store.ts         In-memory document + adapters (JSON file locally, Upstash/Vercel KV Redis in prod)
+  db.ts store.ts         In-memory working set + adapters (Firestore via Admin SDK, Redis, JSON file)
+  firebase-admin.ts      Admin SDK init (service account / ADC / emulator)
   auth.ts otp.ts pnr.ts  HMAC-signed session cookie, OTP issue/verify + auth mode, PNR lookup
   firebase.ts            Firebase web config, lazy app/auth/analytics, track()
-  firebase-token.ts      Server-side Firebase ID token verification (no Admin SDK needed)
+  firebase-token.ts      Phone Auth ID token verification through the Admin SDK
   seed.ts                Demo data, dated relative to today
 src/components/          UI (Tailwind, no component library)
 ```
@@ -220,7 +256,7 @@ src/components/          UI (Tailwind, no component library)
 
 The MVP was built to be swapped piece by piece without touching the UI:
 
-1. **Datastore.** `src/lib/store.ts` holds the storage adapters (file, Redis) and `src/lib/db.ts` is the only module that uses them. Redis is fine for launch; move to Postgres (Prisma or Drizzle) when you need queries across many trains. The types in `src/lib/types.ts` map 1:1 to tables.
+1. **Datastore.** Cloud Firestore through `src/lib/store.ts` (see section 5b). Move hot paths to targeted Firestore queries as traffic grows.
 2. **SMS OTP.** Configure a provider as above (MSG91 recommended for India).
 3. **PNR auto-fill.** Set `RAPIDAPI_KEY` as above. To use a different rail data vendor, adapt `mapIrctcResponse()` in `src/lib/pnr.ts`.
 4. **Train data.** `src/lib/trains.ts` is a curated sample. Replace with a full schedule feed; the board already works for unknown train numbers.

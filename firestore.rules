@@ -1,0 +1,55 @@
+rules_version = '2';
+
+// ===============================================================
+// SeatBadlo - Cloud Firestore Security Rules
+// ===============================================================
+//
+// All application reads and writes go through the Next.js server using the
+// Firebase Admin SDK, which bypasses these rules. Browsers never talk to
+// Firestore directly, so the client-facing rule set is DEFAULT DENY.
+//
+// Why server-only access: several product guarantees cannot be expressed as
+// per-document rules (rules apply to whole documents):
+//   - a listing's exact berth number is hidden until a swap is accepted
+//   - a user's mobile number is revealed only to the other party of an
+//     accepted swap
+//   - swap requests follow a state machine (pending -> accepted/declined ->
+//     completed) with side effects on other requests
+//   - listings are created only after a server-side IRCTC PNR check
+//
+// ===============================================================
+// Assumed Data Model (written by the server, read by the server)
+// ===============================================================
+//
+// Collection: users            Document ID: user id (u_...)
+//   id, mobile (PII), name, gender?, createdAt
+// Collection: listings         Document ID: listing id (l_...)
+//   id, userId, trainNo, trainName, journeyDate (YYYY-MM-DD), from, to,
+//   travelClass, coach, seatNo, berthType, passenger{name,age?,gender?},
+//   pnrLast4, pnrHash, pnrVerified, wants{...}, status, createdAt, updatedAt
+// Collection: requests         Document ID: request id (r_...)
+//   id, trainNo, journeyDate, fromListingId, toListingId, fromUserId,
+//   toUserId, message?, status, createdAt, respondedAt?
+// Collection: notifications    Document ID: notification id (n_...)
+//   id, userId, title, body, href?, read, createdAt
+// Collection: otps             Document ID: mobile number (PII)
+//   mobile, codeHash, expiresAt, attempts, sends[]
+// Collection: meta             Document ID: "db"
+//   seededAt, updatedAt
+//
+// If a future feature needs direct client access (for example live
+// notifications with onSnapshot), add a narrowly scoped rule for that
+// collection only, e.g.
+//   match /notifications/{id} {
+//     allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+//   }
+// and keep every PII-bearing collection (users, otps) server-only.
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
