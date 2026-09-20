@@ -138,9 +138,15 @@ Other scripts: `npm run build`, `npm start`, `npm run typecheck`, `npm run db:re
 
 Copy `.env.example` to `.env` and set `SESSION_SECRET` before deploying.
 
-### OTP login (real SMS)
+### OTP login
 
-Set `SMS_PROVIDER` and the matching credentials, and demo mode switches off automatically:
+Three ways to deliver the login OTP, chosen automatically in this order:
+
+1. **Demo mode**: `NEXT_PUBLIC_DEMO_MODE=true`, or nothing else configured. Fixed OTP `123456`, shown on screen.
+2. **Your own SMS provider**: set `SMS_PROVIDER` (table below). The server generates and checks the code.
+3. **Firebase Phone Authentication** (default when the Firebase web config is present, which it is). The browser asks Firebase to send the SMS (invisible reCAPTCHA), the user enters the code, and the resulting ID token is verified on our server against Google's public certificates before a session is created. Free tier covers 10k verifications a month. Setup in the Firebase console: *Authentication → Sign-in method → Phone → Enable*, and add `seatexchange.vercel.app` (and any custom domain) under *Authentication → Settings → Authorized domains*. To keep the demo accounts usable, add `+91 9000000001` etc. with code `123456` under *Phone numbers for testing*.
+
+SMS providers:
 
 | Provider | Env vars | Notes |
 |---|---|---|
@@ -149,6 +155,10 @@ Set `SMS_PROVIDER` and the matching credentials, and demo mode switches off auto
 | `webhook` | `SMS_WEBHOOK_URL`, optional `SMS_WEBHOOK_TOKEN` | Posts `{mobile, message, otp}` as JSON to any endpoint you own (Fast2SMS, Kaleyra, a WhatsApp bridge). |
 
 Built-in protections: 6-digit random codes, 10 minute expiry, codes stored only as salted hashes, 5 wrong attempts per code, 30 second resend cooldown, 5 sends per number per hour. `NEXT_PUBLIC_DEMO_MODE=true` forces the fixed demo OTP even with a provider configured (for staging).
+
+### Firebase Analytics
+
+Initialised in `src/components/FirebaseAnalytics.tsx` (browser only, logs `page_view` on every route change). Product events are sent through `track()` in `src/lib/firebase.ts`: `login`, `listing_created`, `swap_requested`, `swap_accept` / `swap_decline` / `swap_cancel` / `swap_complete`. Override the project with `NEXT_PUBLIC_FIREBASE_*` variables.
 
 ### PNR status (live IRCTC data)
 
@@ -197,7 +207,9 @@ src/lib/
   matching.ts            Scoring and labels
   listings.ts            Public serialisers (never leak PNR hash / full names)
   db.ts store.ts         In-memory document + adapters (JSON file locally, Upstash/Vercel KV Redis in prod)
-  auth.ts otp.ts pnr.ts  HMAC-signed session cookie, OTP issue/verify, PNR hashing + lookup
+  auth.ts otp.ts pnr.ts  HMAC-signed session cookie, OTP issue/verify + auth mode, PNR lookup
+  firebase.ts            Firebase web config, lazy app/auth/analytics, track()
+  firebase-token.ts      Server-side Firebase ID token verification (no Admin SDK needed)
   seed.ts                Demo data, dated relative to today
 src/components/          UI (Tailwind, no component library)
 ```

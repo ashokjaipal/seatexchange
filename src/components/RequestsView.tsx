@@ -10,6 +10,7 @@ import { ListingMini } from "./ListingCard";
 import { StatusBadge } from "./Badges";
 import { EmptyState } from "./EmptyState";
 import { useToast } from "./Toast";
+import { track } from "@/lib/firebase";
 
 export function RequestsView({ requests, initialTab }: { requests: PublicRequest[]; initialTab?: "received" | "sent" }) {
   const received = requests.filter((r) => r.direction === "received");
@@ -66,6 +67,7 @@ function RequestCard({ r }: { r: PublicRequest }) {
       const res = await fetch(`/api/requests/${r.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
+      track(`swap_${action}`, { train_no: r.mine.trainNo, travel_class: r.mine.travelClass });
       toast(
         action === "accept" ? "Swap accepted! Contact details unlocked." : action === "complete" ? "Marked as done. Happy journey!" : action === "decline" ? "Request declined." : "Request cancelled.",
         action === "accept" || action === "complete" ? "success" : "info",

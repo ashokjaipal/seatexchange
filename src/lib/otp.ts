@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { mutate, getDb } from "./db";
+import { hasFirebaseConfig } from "./firebase";
 
 /**
  * Mobile OTP login.
@@ -30,7 +31,22 @@ export function smsProvider(): SmsProvider {
   return "none";
 }
 
-export const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true" || smsProvider() === "none";
+export type AuthMode = "demo" | "sms" | "firebase";
+
+/**
+ * How login OTPs are delivered:
+ *   demo      fixed 123456 shown on screen (forced by NEXT_PUBLIC_DEMO_MODE=true, or nothing else configured)
+ *   sms       our own OTP sent through SMS_PROVIDER
+ *   firebase  Firebase Phone Authentication on the client, ID token verified on the server
+ */
+export function authMode(): AuthMode {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") return "demo";
+  if (smsProvider() !== "none") return "sms";
+  if (process.env.NEXT_PUBLIC_AUTH_PROVIDER !== "none" && hasFirebaseConfig) return "firebase";
+  return "demo";
+}
+
+export const DEMO_MODE = authMode() === "demo";
 export const DEMO_OTP = "123456";
 
 function hashCode(mobile: string, code: string): string {

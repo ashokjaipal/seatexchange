@@ -3,11 +3,32 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2, Phone, ShieldCheck, Smartphone } from "lucide-react";
+import type { ConfirmationResult, RecaptchaVerifier } from "firebase/auth";
+import { getFirebaseAuth, track } from "@/lib/firebase";
 import { useToast } from "./Toast";
 
 type Step = "mobile" | "otp" | "profile";
+export type LoginMode = "demo" | "sms" | "firebase";
 
-export function LoginForm({ next, demo }: { next: string; demo: boolean }) {
+const FIREBASE_ERRORS: Record<string, string> = {
+  "auth/invalid-phone-number": "That mobile number doesn't look right.",
+  "auth/too-many-requests": "Too many attempts from this device. Please try again later.",
+  "auth/quota-exceeded": "SMS limit reached for now. Please try again later.",
+  "auth/invalid-verification-code": "Incorrect OTP. Please check and try again.",
+  "auth/code-expired": "OTP expired. Request a new one.",
+  "auth/missing-verification-code": "Enter the 6-digit OTP.",
+  "auth/network-request-failed": "Network problem. Check your connection and try again.",
+  "auth/captcha-check-failed": "Verification failed. Please try again.",
+  "auth/operation-not-allowed": "Phone sign-in is not enabled for this project yet.",
+  "auth/unauthorized-domain": "This domain is not authorised for sign-in yet.",
+};
+
+function firebaseMessage(e: unknown): string {
+  const code = (e as { code?: string })?.code ?? "";
+  return FIREBASE_ERRORS[code] || (e as Error)?.message || "Something went wrong. Please try again.";
+}
+
+export function LoginForm({ next, mode }: { next: string; mode: LoginMode }) {
   const router = useRouter();
   const { toast } = useToast();
   const [step, setStep] = useState<Step>("mobile");
@@ -20,6 +41,10 @@ export function LoginForm({ next, demo }: { next: string; demo: boolean }) {
   const [demoCode, setDemoCode] = useState<string | undefined>();
   const [cooldown, setCooldown] = useState(0);
   const otpRef = useRef<HTMLInputElement>(null);
+  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
+  const confirmationRef = useRef<ConfirmationResult | null>(null);
+  const idTokenRef = useRef<string | null>(null);
+  const firebase = mode === "firebase";
 
   useEffect(() => {
     if (step === "otp") otpRef.current?.focus();
@@ -31,6 +56,89 @@ export function LoginForm({ next, demo }: { next: string; demo: boolean }) {
     return () => clearTimeout(t);
   }, [cooldown]);
 
+  useEffect(() => {
+    return () => {
+      recaptchaRef.current?.clear();
+      recaptchaRef.current = null;
+    };
+  }, []);
+
+  const finish = (userName?: string) => {
+    track("login", { method: mode });
+    toast(`Welcome${userName ? ", " + userName.split(" ")[0] : ""}!`, "success");
+    router.push(next);
+    router.refresh();
+  };
+
+  /* ---------------- Firebase Phone Authentication ---------------- */
+  const sendFirebase = async () => {
+    const { RecaptchaVerifier, signInWithPhoneNumber } = await import("firebase/auth");
+    const auth = await getFirebaseAuth();
+    if (!recaptchaRef.current) {
+      recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
+    }
+    try {
+      confirmationRef.current = await signInWithPhoneNumber(auth, `+91${mobile}`, recaptchaRef.current);
+    } catch (e) {
+      // reCAPTCHA tokens are single use: reset so the next attempt gets a fresh one
+      recaptchaRef.current?.clear();
+      recaptchaRef.current = null;
+      throw e;
+    }
+    idTokenRef.current = null;
+    setStep("otp");
+    setCooldown(30);
+  };
+
+  const verifyFirebase = async (withProfile: boolean) => {
+    if (!idTokenRef.current) {
+      if (!confirmationRef.current) throw new Error("Please request a new OTP.");
+      const cred = await confirmationRef.current.confirm(code);
+      idTokenRef.current = await cred.user.getIdToken();
+    }
+    const r = await fetch("/api/auth/firebase", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken: idTokenRef.current, name: withProfile ? name.trim() : undefined, gender: withProfile ? gender || undefined : undefined }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    if (d.needsProfile) {
+      setStep("profile");
+      return;
+    }
+    finish(d.user?.name);
+  };
+
+  /* ---------------- Server OTP (demo / SMS provider) ---------------- */
+  const sendServer = async () => {
+    const r = await fetch("/api/auth/send-otp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mobile }) });
+    const d = await r.json();
+    if (!r.ok) {
+      if (d.retryAfterSec) setCooldown(d.retryAfterSec);
+      throw new Error(d.error);
+    }
+    setDemoCode(d.demoCode);
+    setStep("otp");
+    setCooldown(d.retryAfterSec ?? 30);
+  };
+
+  const verifyServer = async (withProfile: boolean) => {
+    const r = await fetch("/api/auth/verify-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mobile, code, name: withProfile ? name.trim() : undefined, gender: withProfile ? gender || undefined : undefined }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    if (d.needsProfile) {
+      setStep("profile");
+      return;
+    }
+    finish(d.user?.name);
+  };
+
+  /* ---------------- Shared handlers ---------------- */
   const sendOtp = async () => {
     setErr("");
     if (!/^[6-9]\d{9}$/.test(mobile)) {
@@ -39,17 +147,10 @@ export function LoginForm({ next, demo }: { next: string; demo: boolean }) {
     }
     setBusy(true);
     try {
-      const r = await fetch("/api/auth/send-otp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mobile }) });
-      const d = await r.json();
-      if (!r.ok) {
-        if (d.retryAfterSec) setCooldown(d.retryAfterSec);
-        throw new Error(d.error);
-      }
-      setDemoCode(d.demoCode);
-      setStep("otp");
-      setCooldown(d.retryAfterSec ?? 30);
+      if (firebase) await sendFirebase();
+      else await sendServer();
     } catch (e) {
-      setErr((e as Error).message || "Could not send OTP.");
+      setErr(firebase ? firebaseMessage(e) : (e as Error).message || "Could not send OTP.");
     } finally {
       setBusy(false);
     }
@@ -67,29 +168,28 @@ export function LoginForm({ next, demo }: { next: string; demo: boolean }) {
     }
     setBusy(true);
     try {
-      const r = await fetch("/api/auth/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mobile, code, name: withProfile ? name.trim() : undefined, gender: withProfile ? gender || undefined : undefined }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error);
-      if (d.needsProfile) {
-        setStep("profile");
-        return;
-      }
-      toast(`Welcome${d.user?.name ? ", " + d.user.name.split(" ")[0] : ""}!`, "success");
-      router.push(next);
-      router.refresh();
+      if (firebase) await verifyFirebase(withProfile);
+      else await verifyServer(withProfile);
     } catch (e) {
-      setErr((e as Error).message || "Could not verify OTP.");
+      setErr(firebase ? firebaseMessage(e) : (e as Error).message || "Could not verify OTP.");
     } finally {
       setBusy(false);
     }
   };
 
+  const changeNumber = () => {
+    setStep("mobile");
+    setCode("");
+    setErr("");
+    idTokenRef.current = null;
+    confirmationRef.current = null;
+  };
+
   return (
     <div className="card p-6 sm:p-8">
+      {/* Invisible reCAPTCHA anchor for Firebase Phone Auth */}
+      <div id="recaptcha-container" />
+
       {step === "mobile" && (
         <form
           onSubmit={(e) => {
@@ -120,14 +220,15 @@ export function LoginForm({ next, demo }: { next: string; demo: boolean }) {
             />
           </div>
           {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
-          <button className="btn-primary mt-5 w-full btn-lg" disabled={busy}>
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} Send OTP
+          <button className="btn-primary mt-5 w-full btn-lg" disabled={busy || cooldown > 0}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} {cooldown > 0 ? `Wait ${cooldown}s` : "Send OTP"}
           </button>
           <p className="mt-4 flex items-start gap-2 text-xs text-muted">
             <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
             Your number is shared only with a co-passenger after you both agree to a swap.
+            {firebase && " Protected by Google reCAPTCHA."}
           </p>
-          {demo && (
+          {mode === "demo" && (
             <p className="mt-3 rounded-lg bg-saffron-50 px-3 py-2 text-xs text-saffron-700">
               Demo mode: any valid number works and the OTP is <span className="kbd">123456</span>. Try <span className="kbd">9000000001</span> (Priya) or{" "}
               <span className="kbd">9000000002</span> (Rahul) to see existing requests.
@@ -149,7 +250,7 @@ export function LoginForm({ next, demo }: { next: string; demo: boolean }) {
           <h1 className="mt-4 text-2xl font-extrabold tracking-tight">Enter the OTP</h1>
           <p className="mt-1 text-sm text-muted">
             Sent to +91 {mobile}.{" "}
-            <button type="button" className="font-semibold text-brand-700 hover:underline" onClick={() => { setStep("mobile"); setCode(""); setErr(""); }}>
+            <button type="button" className="font-semibold text-brand-700 hover:underline" onClick={changeNumber}>
               Change
             </button>
           </p>
@@ -195,7 +296,9 @@ export function LoginForm({ next, demo }: { next: string; demo: boolean }) {
             Your name
           </label>
           <input id="name" className="input" placeholder="e.g. Priya Sharma" value={name} autoFocus autoComplete="name" onChange={(e) => setName(e.target.value)} />
-          <p className="label mt-5">Gender <span className="font-normal text-muted">(optional, enables women-only swaps)</span></p>
+          <p className="label mt-5">
+            Gender <span className="font-normal text-muted">(optional, enables women-only swaps)</span>
+          </p>
           <div className="flex gap-2">
             {(["F", "M", "O"] as const).map((g) => (
               <button key={g} type="button" className={`chip ${gender === g ? "chip-on" : ""}`} onClick={() => setGender(gender === g ? "" : g)}>

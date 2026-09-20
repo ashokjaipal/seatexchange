@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
-import { DEMO_MODE } from "@/lib/otp";
+import { authMode } from "@/lib/otp";
 import { LoginForm } from "@/components/LoginForm";
 
 export const metadata: Metadata = { title: "Log in" };
@@ -19,7 +19,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <div className="container-x flex justify-center py-10 sm:py-16">
       <div className="w-full max-w-md animate-rise">
-        <LoginForm next={target} demo={DEMO_MODE} />
+        <LoginForm next={target} mode={authMode()} />
       </div>
     </div>
   );

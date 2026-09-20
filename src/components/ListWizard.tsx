@@ -13,6 +13,7 @@ import { BerthDiagram } from "./BerthDiagram";
 import { ClassBadge, BerthBadge, VerifiedBadge } from "./Badges";
 import { ShareButton } from "./ShareButton";
 import { useToast } from "./Toast";
+import { track } from "@/lib/firebase";
 
 interface Props {
   user: { name: string; gender?: Gender };
@@ -212,6 +213,7 @@ export function ListWizard({ user, initial, demo, demoPnrs, liveLookup }: Props)
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
       setDone({ id: d.listing.id, matchCount: d.matchCount ?? 0 });
+      track("listing_created", { train_no: trainNo, travel_class: cls, berth_type: berth, verified, match_count: d.matchCount ?? 0 });
       toast("Your seat is live!", "success");
       router.refresh();
     } catch (e) {

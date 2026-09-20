@@ -11,6 +11,7 @@ import { scoreMatch } from "@/lib/matching";
 import { ListingMini } from "./ListingCard";
 import { MatchBadge } from "./Badges";
 import { useToast } from "./Toast";
+import { track } from "@/lib/firebase";
 
 interface Props {
   target: PublicListing;
@@ -87,6 +88,7 @@ export function ProposeSwap({ target, myListings, loggedIn, existingRequestId, m
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
       setSent(true);
+      track("swap_requested", { train_no: target.trainNo, travel_class: target.travelClass, match: d.match?.label ?? "none" });
       toast("Swap request sent!", "success");
       router.refresh();
     } catch (e) {
