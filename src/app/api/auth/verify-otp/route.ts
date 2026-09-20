@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { handle, fail, readJson, str } from "@/lib/api";
 import { isValidMobile } from "@/lib/rail";
-import { verifyOtp } from "@/lib/otp";
+import { peekOtp, verifyOtp } from "@/lib/otp";
 import { getDb, mutate, newId } from "@/lib/db";
 import { SESSION_COOKIE, createSessionToken, publicUser, sessionCookieOptions } from "@/lib/auth";
 import type { Gender, User } from "@/lib/types";
@@ -19,9 +19,9 @@ export const POST = handle(async (req: Request) => {
 
   const existing = (await getDb()).users.find((u) => u.mobile === mobile);
   if (!existing && !name) {
-    // OTP is valid only once, so check without consuming it: we simply peek.
-    const peek = (await getDb()).otps.find((o) => o.mobile === mobile);
-    if (!peek || peek.code !== code) return fail("Incorrect OTP. Please check and try again.");
+    // New user: check the code without consuming it, then ask for a name.
+    const peek = await peekOtp(mobile, code);
+    if (!peek.ok) return fail(peek.error);
     return NextResponse.json({ needsProfile: true });
   }
 

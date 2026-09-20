@@ -9,7 +9,7 @@ import { bestMatchAgainst } from "@/lib/matching";
 import { BERTH_INFO, CLASS_INFO } from "@/lib/rail";
 import { formatDate, relativeDay, timeAgo } from "@/lib/format";
 import { BerthDiagram } from "@/components/BerthDiagram";
-import { BerthBadge, ClassBadge, MatchBadge, StatusBadge } from "@/components/Badges";
+import { ClassBadge, MatchBadge, StatusBadge, VerifiedBadge } from "@/components/Badges";
 import { Avatar } from "@/components/Avatar";
 import { ProposeSwap } from "@/components/ProposeSwap";
 import { ManageListing } from "@/components/ManageListing";
@@ -22,7 +22,7 @@ type Props = { params: Promise<{ id: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const l = (await getDb()).listings.find((x) => x.id === id);
-  return { title: l ? `${l.coach}-${l.seatNo} ${BERTH_INFO[l.berthType].label} on ${l.trainNo}` : "Listing" };
+  return { title: l ? `${BERTH_INFO[l.berthType].label} in coach ${l.coach} on ${l.trainNo}` : "Listing" };
 }
 
 export default async function ListingPage({ params }: Props) {
@@ -77,14 +77,20 @@ export default async function ListingPage({ params }: Props) {
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <ClassBadge cls={l.travelClass} />
-                    <BerthBadge berth={l.berthType} full />
+                    {l.pnrVerified && <VerifiedBadge />}
                     {l.isMine ? <span className="badge tone-saffron">Your listing</span> : match ? <MatchBadge label={match.label} /> : null}
                   </div>
-                  <h1 className="seat-code mt-2 text-4xl">
-                    {l.coach}-{l.seatNo}
-                  </h1>
+                  <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">{BERTH_INFO[l.berthType].label}</h1>
                   <p className="mt-1 text-slate-600">
-                    {BERTH_INFO[l.berthType].label} in {CLASS_INFO[l.travelClass].label} coach {l.coach}
+                    Coach <span className="font-mono font-bold text-ink">{l.coach}</span>
+                    {l.seatNo ? (
+                      <>
+                        {" "}· berth <span className="font-mono font-bold text-ink">{l.seatNo}</span>
+                      </>
+                    ) : (
+                      <span className="text-muted"> · exact berth number shared once a swap is agreed</span>
+                    )}{" "}
+                    · {CLASS_INFO[l.travelClass].label}
                   </p>
                   <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
                     <span className="inline-flex items-center gap-1">
@@ -160,7 +166,7 @@ export default async function ListingPage({ params }: Props) {
                     <li key={r.id} className="flex items-center justify-between gap-3 py-3">
                       <div className="text-sm">
                         <p className="font-semibold">
-                          {r.direction === "received" ? `${r.theirs.passenger.firstName} offers` : `You offered for`} {r.theirs.coach}-{r.theirs.seatNo} ({BERTH_INFO[r.theirs.berthType].short})
+                          {r.direction === "received" ? `${r.theirs.passenger.firstName} offers` : `You offered for`} {BERTH_INFO[r.theirs.berthType].short} in {r.theirs.coach}{r.theirs.seatNo ? `-${r.theirs.seatNo}` : ""}
                         </p>
                         <p className="text-xs text-muted">{timeAgo(r.createdAt)}</p>
                       </div>

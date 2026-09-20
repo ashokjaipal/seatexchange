@@ -4,7 +4,7 @@ import type { PublicListing } from "@/lib/types";
 import type { MatchResult } from "@/lib/matching";
 import { BERTH_INFO } from "@/lib/rail";
 import { timeAgo } from "@/lib/format";
-import { BerthBadge, ClassBadge, MatchBadge } from "./Badges";
+import { BerthBadge, ClassBadge, MatchBadge, VerifiedBadge } from "./Badges";
 import { BerthDiagram } from "./BerthDiagram";
 import { Avatar } from "./Avatar";
 
@@ -26,12 +26,14 @@ export function ListingCard({ listing, match, href }: { listing: PublicListing; 
         <div className="flex items-center gap-3">
           <BerthDiagram cls={l.travelClass} berth={l.berthType} size={64} className="shrink-0 rounded-lg" />
           <div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <ClassBadge cls={l.travelClass} />
-              <BerthBadge berth={l.berthType} />
+              {l.pnrVerified && <VerifiedBadge />}
             </div>
-            <p className="seat-code mt-1.5 text-lg">
-              {l.coach}-{l.seatNo}
+            <p className="mt-1.5 text-lg font-extrabold leading-tight tracking-tight">{BERTH_INFO[l.berthType].label}</p>
+            <p className="text-sm font-semibold text-slate-600">
+              Coach <span className="font-mono">{l.coach}</span>
+              {l.seatNo ? <span className="text-muted"> · berth {l.seatNo}</span> : null}
             </p>
           </div>
         </div>
@@ -83,11 +85,12 @@ export function ListingMini({ listing, label }: { listing: PublicListing; label?
       <BerthDiagram cls={l.travelClass} berth={l.berthType} size={56} className="shrink-0 rounded-lg" />
       <div className="min-w-0">
         {label && <p className="text-[11px] font-bold uppercase tracking-wide text-muted">{label}</p>}
-        <p className="seat-code">
-          {l.coach}-{l.seatNo} <span className="font-sans text-xs font-semibold text-muted">{l.travelClass}</span>
+        <p className="font-bold">
+          {BERTH_INFO[l.berthType].label} <span className="text-xs font-semibold text-muted">{l.travelClass}</span>
         </p>
         <p className="text-xs text-slate-600">
-          {BERTH_INFO[l.berthType].label} · <Users className="inline h-3 w-3" /> {l.passenger.firstName}
+          Coach <span className="font-mono font-semibold">{l.coach}</span>
+          {l.seatNo ? ` · berth ${l.seatNo}` : ""} · <Users className="inline h-3 w-3" /> {l.passenger.firstName}
         </p>
       </div>
     </div>

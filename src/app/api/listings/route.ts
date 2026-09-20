@@ -4,12 +4,13 @@ import { getSessionUser } from "@/lib/auth";
 import { activeListingsForTrain, myActiveListingsOnTrain, toPublicListing } from "@/lib/listings";
 import { bestMatchAgainst, scoreMatch } from "@/lib/matching";
 import { pushNotification } from "@/lib/notify";
-import { hashPnr } from "@/lib/pnr";
+import { hashPnr, lookupPnr } from "@/lib/pnr";
 import { addDays, isValidYmd, todayYmd, formatDate } from "@/lib/format";
 import {
   CLASS_INFO,
   BERTH_INFO,
   berthOptionsFor,
+  deriveBerthType,
   isValidCoach,
   isValidPnr,
   isValidTrainNo,
@@ -44,6 +45,7 @@ interface CreateBody {
   seatNo?: number | string;
   berthType?: string;
   pnr?: string;
+  passengerNumber?: number | string;
   passenger?: { name?: string; age?: number | string; gender?: string };
   wants?: { berthTypes?: string[]; coach?: string; nearSeat?: number | string; womenOnly?: boolean; note?: string };
 }
@@ -52,38 +54,69 @@ export const POST = handle(async (req: Request) => {
   const user = await requireUser();
   const b = await readJson<CreateBody>(req);
 
-  const trainNo = str(b.trainNo, 5);
+  const pnr = str(b.pnr, 10);
+  if (!isValidPnr(pnr)) return fail("PNR must be exactly 10 digits.");
+
+  // Manual values from the form (used only when the PNR can't be looked up)
+  let trainNo = str(b.trainNo, 5);
+  let trainName = "";
+  let journeyDate = str(b.journeyDate, 10);
+  let from = str(b.from, 60);
+  let to = str(b.to, 60);
+  let travelClass = str(b.travelClass, 2) as TravelClass;
+  let coach = normalizeCoach(str(b.coach, 4));
+  let seatNo = num(b.seatNo);
+  let berthType = str(b.berthType, 2) as BerthType;
+  let pnrVerified = false;
+
+  // Live PNR status is the source of truth whenever it is available
+  const lookup = await lookupPnr(pnr);
+  if (lookup.ok) {
+    const d = lookup.details;
+    if (d.cancelled) return fail("IRCTC shows this train as cancelled.");
+    const confirmed = d.passengers.filter((p) => p.status === "CNF" && p.coach && p.seatNo);
+    if (!confirmed.length) return fail("No confirmed seat on this PNR yet. You can list once it is confirmed.");
+    const wanted = num(b.passengerNumber);
+    const pick =
+      confirmed.find((p) => p.number === wanted) ??
+      confirmed.find((p) => coach && seatNo && p.coach === coach && p.seatNo === seatNo) ??
+      (confirmed.length === 1 ? confirmed[0] : undefined);
+    if (!pick) return fail("Pick which passenger's seat to list.");
+    trainNo = d.trainNo;
+    trainName = d.trainName;
+    journeyDate = d.journeyDate;
+    from = d.from || from;
+    to = d.to || to;
+    travelClass = d.travelClass;
+    coach = pick.coach!;
+    seatNo = pick.seatNo!;
+    berthType = pick.berthType ?? deriveBerthType(travelClass, seatNo) ?? berthType;
+    pnrVerified = d.verified;
+  } else if (lookup.reason === "not_found") {
+    return fail(lookup.message, 404);
+  }
+  // reason "unavailable" / "not_configured": fall through to manual details
+
   if (!isValidTrainNo(trainNo)) return fail("Enter a valid 5-digit train number.");
   const known = getTrain(trainNo);
-  const trainName = known?.name ?? str(b.trainName, 60);
+  trainName = trainName || known?.name || str(b.trainName, 60);
   if (!trainName) return fail("Enter the train name.");
 
-  const journeyDate = str(b.journeyDate, 10);
   const today = todayYmd();
   if (!isValidYmd(journeyDate)) return fail("Pick a valid journey date.");
   if (journeyDate < today) return fail("Journey date can't be in the past.");
   if (journeyDate > addDays(today, 120)) return fail("Journey date is too far ahead (max 120 days).");
 
-  const from = str(b.from, 60) || known?.from.name || "";
-  const to = str(b.to, 60) || known?.to.name || "";
+  from = from || known?.from.name || "";
+  to = to || known?.to.name || "";
   if (!from || !to) return fail("Enter boarding and destination stations.");
 
-  const travelClass = str(b.travelClass, 2) as TravelClass;
   if (!(travelClass in CLASS_INFO)) return fail("Pick a travel class.");
-
-  const coach = normalizeCoach(str(b.coach, 4));
   if (!isValidCoach(coach)) return fail("Coach looks wrong. Examples: S4, B2, A1, C3.");
-
-  const seatNo = num(b.seatNo);
   if (!seatNo || !Number.isInteger(seatNo) || seatNo < 1 || seatNo > CLASS_INFO[travelClass].maxSeat) {
     return fail(`Seat number must be between 1 and ${CLASS_INFO[travelClass].maxSeat} for ${CLASS_INFO[travelClass].label}.`);
   }
-
-  const berthType = str(b.berthType, 2) as BerthType;
   if (!berthOptionsFor(travelClass).includes(berthType)) return fail("Pick your berth / seat type.");
-
-  const pnr = str(b.pnr, 10);
-  if (!isValidPnr(pnr)) return fail("PNR must be exactly 10 digits.");
 
   const pName = str(b.passenger?.name, 60) || user.name;
   const pAge = num(b.passenger?.age);
@@ -145,6 +178,7 @@ export const POST = handle(async (req: Request) => {
     passenger: { name: pName, age: pAge, gender: pGender },
     pnrLast4: pnr.slice(-4),
     pnrHash,
+    pnrVerified,
     wants,
     status: "active",
     createdAt: nowIso,

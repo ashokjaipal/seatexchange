@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { getTrain } from "@/lib/trains";
 import { DEMO_MODE } from "@/lib/otp";
-import { DEMO_PNRS } from "@/lib/pnr";
+import { DEMO_PNRS, PNR_API_CONFIGURED } from "@/lib/pnr";
 import { isValidYmd } from "@/lib/format";
 import { ListWizard } from "@/components/ListWizard";
 
@@ -32,7 +32,7 @@ export default async function ListPage({ searchParams }: { searchParams: Promise
   return (
     <div className="container-x py-6 sm:py-10">
       <div className="mx-auto max-w-2xl">
-        <ListWizard user={{ name: user.name, gender: user.gender }} initial={initial} demo={DEMO_MODE} demoPnrs={DEMO_PNRS} />
+        <ListWizard user={{ name: user.name, gender: user.gender }} initial={initial} demo={DEMO_MODE} demoPnrs={DEMO_PNRS} liveLookup={PNR_API_CONFIGURED} />
       </div>
     </div>
   );

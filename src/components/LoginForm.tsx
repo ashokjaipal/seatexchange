@@ -41,10 +41,13 @@ export function LoginForm({ next, demo }: { next: string; demo: boolean }) {
     try {
       const r = await fetch("/api/auth/send-otp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mobile }) });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error);
+      if (!r.ok) {
+        if (d.retryAfterSec) setCooldown(d.retryAfterSec);
+        throw new Error(d.error);
+      }
       setDemoCode(d.demoCode);
       setStep("otp");
-      setCooldown(30);
+      setCooldown(d.retryAfterSec ?? 30);
     } catch (e) {
       setErr((e as Error).message || "Could not send OTP.");
     } finally {
@@ -98,7 +101,7 @@ export function LoginForm({ next, demo }: { next: string; demo: boolean }) {
             <Smartphone className="h-6 w-6" />
           </span>
           <h1 className="mt-4 text-2xl font-extrabold tracking-tight">Log in with your mobile</h1>
-          <p className="mt-1 text-sm text-muted">We&apos;ll send a one-time password. No passwords to remember.</p>
+          <p className="mt-1 text-sm text-muted">We&apos;ll SMS you a one-time password. No passwords to remember.</p>
           <label className="label mt-6" htmlFor="mobile">
             Mobile number
           </label>

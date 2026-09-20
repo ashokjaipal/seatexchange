@@ -1,7 +1,7 @@
 import { BERTH_INFO, CLASS_INFO } from "@/lib/rail";
 import type { BerthType, TravelClass } from "@/lib/types";
 import type { MatchLabel } from "@/lib/matching";
-import { Sparkles, ThumbsUp, CircleDot } from "lucide-react";
+import { Sparkles, ThumbsUp, CircleDot, BadgeCheck } from "lucide-react";
 
 export function ClassBadge({ cls, className = "" }: { cls: TravelClass; className?: string }) {
   return (
@@ -36,6 +36,14 @@ export function MatchBadge({ label, className = "" }: { label: MatchLabel; class
   return (
     <span className={`badge whitespace-nowrap tone-slate ${className}`}>
       <CircleDot className="h-3 w-3" /> Possible
+    </span>
+  );
+}
+
+export function VerifiedBadge({ className = "" }: { className?: string }) {
+  return (
+    <span className={`badge whitespace-nowrap tone-green ${className}`} title="Seat confirmed against live IRCTC PNR status">
+      <BadgeCheck className="h-3 w-3" /> Verified
     </span>
   );
 }

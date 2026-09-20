@@ -115,6 +115,7 @@ export function seedDatabase(db: Database) {
       passenger: { name: u.name, age: s.age, gender: u.gender },
       pnrLast4: pnr.slice(-4),
       pnrHash: hashPnr(pnr),
+      pnrVerified: true,
       wants: s.wants,
       status: "active",
       createdAt: created,

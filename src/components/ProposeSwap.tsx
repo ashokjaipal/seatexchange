@@ -122,7 +122,7 @@ export function ProposeSwap({ target, myListings, loggedIn, existingRequestId, m
 
       <div className="my-4 flex items-center gap-2 text-xs text-muted">
         <span className="h-px flex-1 bg-line" />
-        <ArrowLeftRight className="h-3.5 w-3.5" /> for their {BERTH_INFO[target.berthType].label.toLowerCase()} {target.coach}-{target.seatNo}
+        <ArrowLeftRight className="h-3.5 w-3.5" /> for their {BERTH_INFO[target.berthType].label.toLowerCase()} in {target.coach}
         <span className="h-px flex-1 bg-line" />
       </div>
 
@@ -141,7 +141,7 @@ export function ProposeSwap({ target, myListings, loggedIn, existingRequestId, m
 
 function scoreMatchPublic(mine: PublicListing, theirs: PublicListing) {
   // PublicListing is a superset of what scoreMatch needs, apart from pnrHash/passenger.name
-  const toL = (p: PublicListing) => ({ ...p, pnrHash: "", passenger: { name: p.passenger.firstName, age: p.passenger.age, gender: p.passenger.gender } });
+  const toL = (p: PublicListing) => ({ ...p, seatNo: p.seatNo ?? 0, pnrHash: "", passenger: { name: p.passenger.firstName, age: p.passenger.age, gender: p.passenger.gender } });
   return scoreMatch(toL(mine), toL(theirs));
 }
 

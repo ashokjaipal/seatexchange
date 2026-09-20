@@ -1,12 +1,26 @@
 import type { Database, Listing, PublicListing, SwapRequest, User } from "./types";
 import { firstName } from "./format";
 
+/** The exact berth number is private until a swap involving both parties is accepted. */
+export function seatRevealedTo(l: Listing, db: Database, viewerId?: string | null): boolean {
+  if (!viewerId) return false;
+  if (l.userId === viewerId) return true;
+  return db.requests.some(
+    (r) =>
+      (r.status === "accepted" || r.status === "completed") &&
+      (r.fromListingId === l.id || r.toListingId === l.id) &&
+      (r.fromUserId === viewerId || r.toUserId === viewerId),
+  );
+}
+
 export function toPublicListing(l: Listing, db: Database, viewerId?: string | null): PublicListing {
   const owner = db.users.find((u) => u.id === l.userId);
-  const { pnrHash: _pnrHash, passenger, ...rest } = l;
+  const { pnrHash: _pnrHash, passenger, seatNo, ...rest } = l;
   void _pnrHash;
+  const revealed = seatRevealedTo(l, db, viewerId);
   return {
     ...rest,
+    ...(revealed ? { seatNo } : {}),
     passenger: { firstName: firstName(passenger.name), age: passenger.age, gender: passenger.gender },
     ownerName: owner ? firstName(owner.name) : "Traveller",
     isMine: !!viewerId && l.userId === viewerId,

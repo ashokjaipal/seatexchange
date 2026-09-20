@@ -81,7 +81,7 @@ function RequestCard({ r }: { r: PublicRequest }) {
   const other = r.theirs.passenger.firstName;
   const wa = r.contact
     ? `https://wa.me/91${r.contact.mobile}?text=${encodeURIComponent(
-        `Hi ${r.contact.name.split(" ")[0]}, about our SeatBadlo swap on train ${r.mine.trainNo} (${formatDate(r.mine.journeyDate)}): my ${r.mine.coach}-${r.mine.seatNo} for your ${r.theirs.coach}-${r.theirs.seatNo}. See you on board!`,
+        `Hi ${r.contact.name.split(" ")[0]}, about our SeatBadlo swap on train ${r.mine.trainNo} (${formatDate(r.mine.journeyDate)}): my ${r.mine.coach}-${r.mine.seatNo} for your ${r.theirs.coach}${r.theirs.seatNo ? "-" + r.theirs.seatNo : ""}. See you on board!`,
       )}`
     : "";
 

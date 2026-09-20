@@ -73,7 +73,8 @@ function SeatCard({ l, muted = false }: { l: MySeat; muted?: boolean }) {
             <BerthBadge berth={l.berthType} />
           </div>
           <p className="seat-code mt-1 text-lg">
-            {l.coach}-{l.seatNo}
+            {l.coach}
+            {l.seatNo ? `-${l.seatNo}` : ""}
           </p>
           <p className="text-xs text-muted">Wants: {wantsSummary(l)}</p>
         </div>

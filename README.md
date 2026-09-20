@@ -89,12 +89,12 @@ Landing ──▶ Search train + date ──▶ Train board (public)
 | Mobile number | yes | Identity, OTP login, contact after acceptance. Indian users expect this over email. |
 | Name | yes | Trust. Only the first name is shown publicly. |
 | Gender | optional | Enables the women-only preference. Helps others understand a need. |
-| PNR (10 digits) | yes | Proves the seat is real, prevents the same seat being listed twice, enables auto-fill. Stored as a salted hash plus last 4 digits. Never displayed. |
+| PNR (10 digits) | yes | Fetches the ticket from IRCTC PNR status (train, date, stations, class, coach, berth), proves the seat is real, prevents the same seat being listed twice. Stored as a salted hash plus last 4 digits. Never displayed. |
 | Train number | yes | Defines the "room". Works even for trains not in our list. |
 | Boarding date | yes | Defines the "room". |
 | Boarding and destination stations | yes | Two passengers on the same train may overlap for only part of the route. Shown on cards and flagged in matching. |
 | Class | yes | Swaps are only meaningful within the same class (fare differences otherwise). Enforced. |
-| Coach + berth number | yes | The seat itself. Also drives "near my family" matching by bay. |
+| Coach + berth number | yes (from PNR) | The seat itself. Also drives "near my family" matching by bay. The number is hidden from other users until a swap is accepted. |
 | Berth type | yes (auto-detected) | The thing people actually trade. Lower / Middle / Upper / Side lower / Side upper (+ Side middle in 3E), or Window / Middle / Aisle in sitting classes. |
 | Passenger age | optional | Signals need ("68 yrs" says a lot). |
 | Wants: berth types | optional | Empty means "any", which is common when the main goal is sitting together or simply helping. |
@@ -128,7 +128,7 @@ npm run dev       # http://localhost:3000
 
 The app seeds itself with demo users, listings on popular trains for the next few days, and a couple of requests, so every screen is alive on first run.
 
-**Demo mode** (default, `NEXT_PUBLIC_DEMO_MODE=true`):
+**Demo mode** (automatic while no SMS provider is configured):
 
 - OTP is always `123456` and is shown on the login screen.
 - Log in as any 10-digit number to create a fresh account, or as a demo user to see the other side of a swap: `9000000001` (Priya), `9000000002` (Rahul, has a pending request), `9000000009` (Kavita, has an accepted swap).
@@ -137,6 +137,33 @@ The app seeds itself with demo users, listings on popular trains for the next fe
 Other scripts: `npm run build`, `npm start`, `npm run typecheck`, `npm run db:reset` (wipe and re-seed).
 
 Copy `.env.example` to `.env` and set `SESSION_SECRET` before deploying.
+
+### OTP login (real SMS)
+
+Set `SMS_PROVIDER` and the matching credentials, and demo mode switches off automatically:
+
+| Provider | Env vars | Notes |
+|---|---|---|
+| `msg91` | `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID` | Create an OTP template in MSG91 with the `##OTP##` variable. Best deliverability for Indian numbers, DLT-registered. |
+| `twilio` | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` | Works worldwide; Indian DLT rules still apply to the sender. |
+| `webhook` | `SMS_WEBHOOK_URL`, optional `SMS_WEBHOOK_TOKEN` | Posts `{mobile, message, otp}` as JSON to any endpoint you own (Fast2SMS, Kaleyra, a WhatsApp bridge). |
+
+Built-in protections: 6-digit random codes, 10 minute expiry, codes stored only as salted hashes, 5 wrong attempts per code, 30 second resend cooldown, 5 sends per number per hour. `NEXT_PUBLIC_DEMO_MODE=true` forces the fixed demo OTP even with a provider configured (for staging).
+
+### PNR status (live IRCTC data)
+
+Set `RAPIDAPI_KEY` from the RapidAPI "IRCTC" API (`irctc1.p.rapidapi.com`). With it:
+
+- The listing wizard becomes PNR-first: enter the PNR and the train, date, stations, class, coach, berth number and berth type are fetched. The user only picks which passenger's seat to list (multi-passenger PNRs) and says what they want.
+- The server re-fetches the PNR when a listing is created and uses the IRCTC data as the source of truth, so a client cannot claim a seat it does not hold. Such listings carry a **Verified** badge.
+- RAC / waitlisted passengers cannot list until confirmed; cancelled trains are rejected; unknown PNRs are rejected with IRCTC's message.
+- Lookups are cached for 10 minutes and require login, to protect your API quota.
+
+Without a key, the demo PNRs still auto-fill, and every other PNR falls back to manual entry (unverified).
+
+### Privacy of the berth number
+
+Cards and listing pages show only the coach and berth type (for example "Lower berth, coach B2"). The exact berth number is revealed to the two passengers only after a swap request is accepted, together with the phone number.
 
 ### Deploying to Vercel
 
@@ -182,8 +209,8 @@ src/components/          UI (Tailwind, no component library)
 The MVP was built to be swapped piece by piece without touching the UI:
 
 1. **Datastore.** `src/lib/store.ts` holds the storage adapters (file, Redis) and `src/lib/db.ts` is the only module that uses them. Redis is fine for launch; move to Postgres (Prisma or Drizzle) when you need queries across many trains. The types in `src/lib/types.ts` map 1:1 to tables.
-2. **SMS OTP.** Implement `sendSms()` in `src/lib/otp.ts` with MSG91 / Kaleyra / Twilio and set `NEXT_PUBLIC_DEMO_MODE=false`.
-3. **PNR auto-fill.** `lookupPnr()` in `src/lib/pnr.ts` currently answers only demo PNRs. Wire an official or partner rail API there; the wizard already handles found / not-found, and multi-passenger PNRs.
+2. **SMS OTP.** Configure a provider as above (MSG91 recommended for India).
+3. **PNR auto-fill.** Set `RAPIDAPI_KEY` as above. To use a different rail data vendor, adapt `mapIrctcResponse()` in `src/lib/pnr.ts`.
 4. **Train data.** `src/lib/trains.ts` is a curated sample. Replace with a full schedule feed; the board already works for unknown train numbers.
 5. **Notifications.** `pushNotification()` in `src/lib/notify.ts` is the single hook. Add WhatsApp Business / SMS / web push there.
 6. **Trust and safety.** Add report-user, rate limits per mobile, and a simple admin view. Session cookies are HttpOnly + SameSite=Lax; set `SESSION_SECRET`.

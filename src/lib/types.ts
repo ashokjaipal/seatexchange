@@ -54,6 +54,8 @@ export interface Listing {
   passenger: Passenger;
   pnrLast4: string;
   pnrHash: string;
+  /** True when the seat was confirmed against live PNR status at listing time */
+  pnrVerified: boolean;
   wants: Wants;
   status: ListingStatus;
   createdAt: string;
@@ -88,9 +90,12 @@ export interface Notification {
 
 export interface OtpEntry {
   mobile: string;
-  code: string;
+  /** sha256 of the code (never stored in clear) */
+  codeHash: string;
   expiresAt: string;
   attempts: number;
+  /** ISO timestamps of sends in the current window, for rate limiting */
+  sends: string[];
 }
 
 export interface Database {
@@ -102,8 +107,12 @@ export interface Database {
   seededAt?: string;
 }
 
-/** Public shape of a listing (never leaks PNR hash, exposes only first name) */
-export interface PublicListing extends Omit<Listing, "pnrHash" | "passenger"> {
+/**
+ * Public shape of a listing: no PNR hash, first name only, and the exact
+ * berth number is included only for the owner or once a swap is accepted.
+ */
+export interface PublicListing extends Omit<Listing, "pnrHash" | "passenger" | "seatNo"> {
+  seatNo?: number;
   passenger: { firstName: string; age?: number; gender?: Gender };
   ownerName: string;
   isMine: boolean;
