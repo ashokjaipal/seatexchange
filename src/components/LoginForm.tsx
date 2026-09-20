@@ -21,11 +21,15 @@ const FIREBASE_ERRORS: Record<string, string> = {
   "auth/captcha-check-failed": "Verification failed. Please try again.",
   "auth/operation-not-allowed": "Phone sign-in is not enabled for this project yet.",
   "auth/unauthorized-domain": "This domain is not authorised for sign-in yet.",
+  "auth/internal-error": "Couldn't reach the sign-in service. Check your connection and try again.",
+  "auth/web-storage-unsupported": "Please enable cookies / site data for this site and try again.",
 };
 
 function firebaseMessage(e: unknown): string {
   const code = (e as { code?: string })?.code ?? "";
-  return FIREBASE_ERRORS[code] || (e as Error)?.message || "Something went wrong. Please try again.";
+  if (FIREBASE_ERRORS[code]) return FIREBASE_ERRORS[code];
+  if (code.startsWith("auth/")) return `Sign-in failed (${code.replace("auth/", "")}). Please try again.`;
+  return (e as Error)?.message || "Something went wrong. Please try again.";
 }
 
 export function LoginForm({ next, mode }: { next: string; mode: LoginMode }) {
