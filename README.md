@@ -140,11 +140,12 @@ Copy `.env.example` to `.env` and set `SESSION_SECRET` before deploying.
 
 ### OTP login
 
-Three ways to deliver the login OTP, chosen automatically in this order:
+Four ways to deliver the login OTP. `NEXT_PUBLIC_AUTH_PROVIDER` picks one explicitly; otherwise the first configured wins in this order:
 
 1. **Demo mode**: `NEXT_PUBLIC_DEMO_MODE=true`, or nothing else configured. Fixed OTP `123456`, shown on screen.
-2. **Your own SMS provider**: set `SMS_PROVIDER` (table below). The server generates and checks the code.
-3. **Firebase Phone Authentication** (default when the Firebase web config is present, which it is). Implemented exactly as the Firebase "Authenticate with Firebase on the web using a phone number" guide:
+2. **MSG91 OTP Widget** (recommended for India, DLT-registered SMS, no Google billing). The browser loads `verify.msg91.com/otp-provider.js` with `exposeMethods: true` and calls `sendOtp('91' + mobile)`, `verifyOtp(code)` and `retryOtp(null)` for resend, all without the widget's own popup. `verifyOtp` returns an access token, which our server confirms with MSG91 (`POST /api/v5/widget/verifyAccessToken` using `MSG91_AUTH_KEY`) and reads the verified mobile number from MSG91's answer. It must match the number typed, then the normal SeatBadlo session is created. Env: `NEXT_PUBLIC_MSG91_WIDGET_ID`, `NEXT_PUBLIC_MSG91_TOKEN_AUTH` (public, defaults built in) and `MSG91_AUTH_KEY` (secret, required). If the widget has captcha enabled in the MSG91 dashboard it renders inside the login card.
+3. **Your own SMS provider**: set `SMS_PROVIDER` (table below). The server generates and checks the code.
+4. **Firebase Phone Authentication** (default when the Firebase web config is present, which it is). Implemented exactly as the Firebase "Authenticate with Firebase on the web using a phone number" guide:
    - `RecaptchaVerifier` (invisible) mounted on `#recaptcha-container` in the login form, reset after a failed send since reCAPTCHA tokens are single-use
    - `signInWithPhoneNumber(auth, "+91" + mobile, verifier)` → `confirmationResult.confirm(code)`
    - `auth.useDeviceLanguage()` so reCAPTCHA and the SMS text follow the phone's language

@@ -7,7 +7,8 @@ import { SESSION_COOKIE, createSessionToken, publicUser, sessionCookieOptions } 
 import type { Gender, User } from "@/lib/types";
 
 export const POST = handle(async (req: Request) => {
-  if (authMode() === "firebase") return fail("Login is handled by Firebase Phone Authentication on this deployment.", 400);
+  const mode = authMode();
+  if (mode === "firebase" || mode === "msg91") return fail("Login is handled in the browser on this deployment.", 400);
   const body = await readJson(req);
   const mobile = str(body.mobile, 10).replace(/\D/g, "");
   const code = str(body.code, 6);

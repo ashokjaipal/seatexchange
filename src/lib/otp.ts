@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { mutate, getDb } from "./db";
 import { hasFirebaseConfig } from "./firebase";
+import { hasMsg91Widget } from "./msg91";
 
 /**
  * Mobile OTP login.
@@ -31,18 +32,28 @@ export function smsProvider(): SmsProvider {
   return "none";
 }
 
-export type AuthMode = "demo" | "sms" | "firebase";
+export type AuthMode = "demo" | "msg91" | "sms" | "firebase";
 
 /**
- * How login OTPs are delivered:
- *   demo      fixed 123456 shown on screen (forced by NEXT_PUBLIC_DEMO_MODE=true, or nothing else configured)
+ * How login OTPs are delivered. NEXT_PUBLIC_AUTH_PROVIDER picks one explicitly
+ * (msg91 | firebase | sms | demo); otherwise the first configured wins:
+ *   demo      fixed 123456 shown on screen (NEXT_PUBLIC_DEMO_MODE=true, or nothing else configured)
+ *   msg91     MSG91 OTP Widget in the browser, access token verified on the server (needs MSG91_AUTH_KEY)
  *   sms       our own OTP sent through SMS_PROVIDER
  *   firebase  Firebase Phone Authentication on the client, ID token verified on the server
  */
 export function authMode(): AuthMode {
   if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") return "demo";
+  const pick = (process.env.NEXT_PUBLIC_AUTH_PROVIDER || "").toLowerCase();
+  const msg91Ready = hasMsg91Widget && !!process.env.MSG91_AUTH_KEY;
+  if (pick === "msg91" && msg91Ready) return "msg91";
+  if (pick === "sms" && smsProvider() !== "none") return "sms";
+  if (pick === "firebase" && hasFirebaseConfig) return "firebase";
+  if (pick === "demo") return "demo";
+  if (pick && pick !== "none") console.warn(`[otp] NEXT_PUBLIC_AUTH_PROVIDER=${pick} is not fully configured; falling back.`);
+  if (msg91Ready) return "msg91";
   if (smsProvider() !== "none") return "sms";
-  if (process.env.NEXT_PUBLIC_AUTH_PROVIDER !== "none" && hasFirebaseConfig) return "firebase";
+  if (pick !== "none" && hasFirebaseConfig) return "firebase";
   return "demo";
 }
 

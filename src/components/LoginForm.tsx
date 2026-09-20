@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2, Phone, ShieldCheck, Smartphone } from "lucide-react";
 import type { ConfirmationResult, RecaptchaVerifier } from "firebase/auth";
 import { getFirebaseAuth, track } from "@/lib/firebase";
+import { loadMsg91Widget, msg91AccessToken, msg91Message, msg91RequestId } from "@/lib/msg91-client";
 import { useToast } from "./Toast";
 
 type Step = "mobile" | "otp" | "profile";
-export type LoginMode = "demo" | "sms" | "firebase";
+export type LoginMode = "demo" | "msg91" | "sms" | "firebase";
 
 const FIREBASE_ERRORS: Record<string, string> = {
   "auth/invalid-phone-number": "That mobile number doesn't look right.",
@@ -34,7 +35,7 @@ function firebaseMessage(e: unknown): string {
   return (e as Error)?.message || "Something went wrong. Please try again.";
 }
 
-export function LoginForm({ next, mode }: { next: string; mode: LoginMode }) {
+export function LoginForm({ next, mode, msg91 }: { next: string; mode: LoginMode; msg91?: { widgetId: string; tokenAuth: string } }) {
   const router = useRouter();
   const { toast } = useToast();
   const [step, setStep] = useState<Step>("mobile");
@@ -50,7 +51,19 @@ export function LoginForm({ next, mode }: { next: string; mode: LoginMode }) {
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
   const confirmationRef = useRef<ConfirmationResult | null>(null);
   const idTokenRef = useRef<string | null>(null);
+  const msgReqIdRef = useRef<string | undefined>(undefined);
+  const msgTokenRef = useRef<string | null>(null);
+  const [widgetReady, setWidgetReady] = useState(mode !== "msg91");
   const firebase = mode === "firebase";
+  const isMsg91 = mode === "msg91";
+
+  // Preload the MSG91 widget so the first "Send OTP" is instant
+  useEffect(() => {
+    if (!isMsg91 || !msg91) return;
+    loadMsg91Widget(msg91.widgetId, msg91.tokenAuth, "msg91-captcha")
+      .then(() => setWidgetReady(true))
+      .catch((e) => setErr((e as Error).message));
+  }, [isMsg91, msg91]);
 
   useEffect(() => {
     if (step === "otp") otpRef.current?.focus();
@@ -116,6 +129,63 @@ export function LoginForm({ next, mode }: { next: string; mode: LoginMode }) {
     finish(d.user?.name);
   };
 
+  /* ---------------- MSG91 OTP Widget ---------------- */
+  const sendMsg91 = async () => {
+    await loadMsg91Widget(msg91!.widgetId, msg91!.tokenAuth, "msg91-captcha");
+    await new Promise<void>((resolve, reject) => {
+      window.sendOtp!(
+        `91${mobile}`,
+        (data) => {
+          msgReqIdRef.current = msg91RequestId(data);
+          resolve();
+        },
+        (e) => reject(new Error(msg91Message(e, "Could not send the OTP. Please try again."))),
+      );
+    });
+    msgTokenRef.current = null;
+    setStep("otp");
+    setCooldown(30);
+  };
+
+  const resendMsg91 = async () => {
+    await new Promise<void>((resolve, reject) => {
+      window.retryOtp!(null, () => resolve(), (e) => reject(new Error(msg91Message(e, "Could not resend the OTP."))), msgReqIdRef.current);
+    });
+    setCooldown(30);
+  };
+
+  const verifyMsg91 = async (withProfile: boolean) => {
+    if (!msgTokenRef.current) {
+      const token = await new Promise<string>((resolve, reject) => {
+        window.verifyOtp!(
+          code,
+          (data) => {
+            const t = msg91AccessToken(data);
+            t ? resolve(t) : reject(new Error("Verification succeeded but no token was returned. Please try again."));
+          },
+          (e) => reject(new Error(msg91Message(e, "Incorrect OTP. Please check and try again."))),
+          msgReqIdRef.current,
+        );
+      });
+      msgTokenRef.current = token;
+    }
+    const r = await fetch("/api/auth/msg91", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accessToken: msgTokenRef.current, mobile, name: withProfile ? name.trim() : undefined, gender: withProfile ? gender || undefined : undefined }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      if (r.status === 401) msgTokenRef.current = null;
+      throw new Error(d.error);
+    }
+    if (d.needsProfile) {
+      setStep("profile");
+      return;
+    }
+    finish(d.user?.name);
+  };
+
   /* ---------------- Server OTP (demo / SMS provider) ---------------- */
   const sendServer = async () => {
     const r = await fetch("/api/auth/send-otp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mobile }) });
@@ -154,9 +224,26 @@ export function LoginForm({ next, mode }: { next: string; mode: LoginMode }) {
     setBusy(true);
     try {
       if (firebase) await sendFirebase();
+      else if (isMsg91) await sendMsg91();
       else await sendServer();
     } catch (e) {
       setErr(firebase ? firebaseMessage(e) : (e as Error).message || "Could not send OTP.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resendOtp = async () => {
+    setErr("");
+    setBusy(true);
+    try {
+      if (isMsg91) await resendMsg91();
+      else if (firebase) await sendFirebase();
+      else await sendServer();
+      setCode("");
+      toast("OTP sent again.", "info");
+    } catch (e) {
+      setErr(firebase ? firebaseMessage(e) : (e as Error).message || "Could not resend OTP.");
     } finally {
       setBusy(false);
     }
@@ -175,6 +262,7 @@ export function LoginForm({ next, mode }: { next: string; mode: LoginMode }) {
     setBusy(true);
     try {
       if (firebase) await verifyFirebase(withProfile);
+      else if (isMsg91) await verifyMsg91(withProfile);
       else await verifyServer(withProfile);
     } catch (e) {
       setErr(firebase ? firebaseMessage(e) : (e as Error).message || "Could not verify OTP.");
@@ -189,12 +277,15 @@ export function LoginForm({ next, mode }: { next: string; mode: LoginMode }) {
     setErr("");
     idTokenRef.current = null;
     confirmationRef.current = null;
+    msgTokenRef.current = null;
+    msgReqIdRef.current = undefined;
   };
 
   return (
     <div className="card p-6 sm:p-8">
-      {/* Invisible reCAPTCHA anchor for Firebase Phone Auth */}
+      {/* Anchors: invisible reCAPTCHA (Firebase) and MSG91 widget captcha (rendered only if enabled on the widget) */}
       <div id="recaptcha-container" />
+      <div id="msg91-captcha" className="empty:hidden mb-3" />
 
       {step === "mobile" && (
         <form
@@ -226,13 +317,14 @@ export function LoginForm({ next, mode }: { next: string; mode: LoginMode }) {
             />
           </div>
           {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
-          <button className="btn-primary mt-5 w-full btn-lg" disabled={busy || cooldown > 0}>
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} {cooldown > 0 ? `Wait ${cooldown}s` : "Send OTP"}
+          <button className="btn-primary mt-5 w-full btn-lg" disabled={busy || cooldown > 0 || !widgetReady}>
+            {busy || !widgetReady ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} {cooldown > 0 ? `Wait ${cooldown}s` : "Send OTP"}
           </button>
           <p className="mt-4 flex items-start gap-2 text-xs text-muted">
             <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
             Your number is shared only with a co-passenger after you both agree to a swap.
             {firebase && " Protected by Google reCAPTCHA."}
+            {isMsg91 && " OTP delivered by MSG91."}
           </p>
           {mode === "demo" && (
             <p className="mt-3 rounded-lg bg-saffron-50 px-3 py-2 text-xs text-saffron-700">
@@ -283,7 +375,7 @@ export function LoginForm({ next, mode }: { next: string; mode: LoginMode }) {
           <button className="btn-primary mt-5 w-full btn-lg" disabled={busy || code.length !== 6}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} Verify & continue
           </button>
-          <button type="button" className="btn-ghost mt-2 w-full" disabled={cooldown > 0 || busy} onClick={sendOtp}>
+          <button type="button" className="btn-ghost mt-2 w-full" disabled={cooldown > 0 || busy} onClick={resendOtp}>
             {cooldown > 0 ? `Resend OTP in ${cooldown}s` : "Resend OTP"}
           </button>
         </form>
